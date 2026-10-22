@@ -12,7 +12,9 @@ zmodload -F zsh/stat b:zstat
 typeset -A KEYS ALIAS
 typeset -a OUT ACT PLAIN
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
-MOUSE_ON=$'\e[?1000h\e[?1006h' MOUSE_OFF=$'\e[?1000l\e[?1006l'
+# Sheet mode: SGR mouse reporting on and auto-wrap off. Without wrap, a line wider than the pane is cut
+# at the edge instead of taking a second screen row, which would shift every row below (and its click).
+MOUSE_ON=$'\e[?1000h\e[?1006h\e[?7l' MOUSE_OFF=$'\e[?1000l\e[?1006l\e[?7h'
 
 fmt_key() { # "prefix+alt+r" -> "^B ⌥r"
   local k=$1
@@ -260,7 +262,8 @@ render_terminal() {
   [[ -n "$TERMHINT" ]] && line "  ${D}$TERMHINT${R}"
 }
 
-draw() {
+# Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
+build() {
   OUT=() ACT=() PLAIN=()
   load_herdr_keys
   render_banner "$1"
@@ -269,12 +272,43 @@ draw() {
   render_terminal
   render_agents
   line ""
-  line " ${D}click ▸ to run · r refresh · q close${R}"
-  # never print past the pane: screen row N must stay OUT[N] for click mapping
-  local max=$(( LINES - 1 ))
-  (( ${#OUT} > max )) && OUT=("${(@)OUT[1,max]}") ACT=("${(@)ACT[1,max]}") PLAIN=("${(@)PLAIN[1,max]}")
-  printf '\e]0;%s\a\e[H\e[2J%s' "$LABEL" "${(pj:\n:)OUT}"
+  line " ${D}click ▸ to run · scroll · r refresh · q close${R}"
 }
+
+# Sets REPLY to the line cut to the pane width; color codes are copied, only visible characters count.
+fit() { # line
+  setopt local_options extended_glob
+  local s=$1 out="" esc n=0 max=$(( COLS - 1 ))
+  if (( ${#${(S)s//$'\e'\[[0-9;]#m/}} <= max )); then REPLY=$s; return; fi
+  while [[ -n $s ]] && (( n < max )); do
+    esc=${(M)s#$'\e'\[[0-9;]#m}
+    if [[ -n $esc ]]; then out+=$esc s=${s#$esc}
+    else out+=${s[1]} s=${s[2,-1]}; (( n++ ))
+    fi
+  done
+  REPLY="$out$R"
+}
+
+# Prints the visible slice: screen row N shows OUT[SCROLL + N], which is what clicks map to.
+# When content continues above/below, the first/last row becomes a dim hint instead.
+paint() {
+  local vis=$(( LINES - 1 )) total=${#OUT}
+  (( vis < 1 )) && vis=1
+  (( SCROLL > total - vis )) && SCROLL=$(( total - vis ))
+  (( SCROLL < 0 )) && SCROLL=0
+  local -a view=("${(@)OUT[SCROLL + 1, SCROLL + vis]}")
+  local i
+  for i in {1..${#view}}; do fit "$view[$i]"; view[$i]=$REPLY; done
+  VIS_ROWS=${#view} HINT_TOP=0 HINT_BOTTOM=0
+  (( SCROLL > 0 )) && { view[1]=" ${D}↑ more${R}"; HINT_TOP=1 }
+  (( SCROLL + vis < total )) && { view[-1]=" ${D}↓ more${R}"; HINT_BOTTOM=1 }
+  printf '\e]0;%s\a\e[H\e[2J%s' "$LABEL" "${(pj:\n:)view}"
+}
+
+# The sheet keeps the tty silent (no echo, byte-wise input) so mouse reports that arrive while it is
+# busy are never echoed onto the panel. Commands and prompts get the normal mode back.
+quiet_tty() { stty -echo -icanon </dev/tty 2>/dev/null }
+normal_tty() { [[ -n $TTY_SAVED ]] && stty "$TTY_SAVED" </dev/tty 2>/dev/null }
 
 focus_main() { "$H" pane focus --pane "$HERDR_PANE_ID" --direction left >/dev/null 2>&1 }
 
@@ -287,10 +321,12 @@ drain() { # seconds of silence that end the drain
 run_inline() { # command [wait]
   printf '%s\e[?25h\e[H\e[2J' "$MOUSE_OFF"
   printf "${B}\$ %s${R}  ${D}(in %s, Ctrl-C stops)${R}\n\n" "$1" "${DIR/#$HOME/~}"
+  normal_tty
   trap ':' INT
   ( cd "$DIR" && HERDR_ACTIVE_PANE_CWD="$DIR" HERDR_ACTIVE_PANE_ID="$TPANE" zsh -lc "$1" )
   local rc=$?
-  trap - INT
+  trap 'exit 130' INT
+  quiet_tty
   if [[ "$2" == wait ]]; then
     printf "\n${D}exit %s — press any key to return${R}" "$rc"
     drain 0.05
@@ -318,7 +354,9 @@ rename_prompt() { # tab | workspace | pane
   printf '%s\e[?25h\e[H\e[2J' "$MOUSE_OFF"
   printf "${B}Rename %s${R}\n${D}current: %s — Enter on empty keeps it${R}\n\n> " "$1" "${cur:-—}"
   drain 0.05
+  normal_tty
   read -r new </dev/tty
+  quiet_tty
   [[ -n "$new" ]] && "$H" "$1" rename "$id" "$new" >/dev/null
   printf '\e[?25l%s' "$MOUSE_ON"
   FP=""
@@ -352,39 +390,59 @@ execute() { # action
   esac
 }
 
-click() { # row
-  local a=${ACT[$1]}
+click() { # screen row
+  (( $1 == 1 && HINT_TOP || $1 == VIS_ROWS && HINT_BOTTOM )) && return
+  local i=$(( SCROLL + $1 ))
+  local a=${ACT[$i]}
   [[ -n "$a" ]] || return
-  printf '\e[%d;1H\e[7m%s\e[0m' "$1" "${PLAIN[$1]}"
+  printf '\e[%d;1H\e[7m%s\e[0m' "$1" "${PLAIN[$i]}"
   drain 0.15   # swallows the button-release report that follows the press
   FP=""
   execute "$a"
 }
 
-# Reads one input event: sets KEY for keys, or handles a mouse click.
+scroll_by() { (( $1 )) || return; SCROLL=$(( SCROLL + $1 )); paint }
+
+# Handles everything that is queued: keys, clicks and wheel bursts (the scroll is painted once).
 handle_input() {
-  local k seq c
+  local k c seq n=0 delta=0 b
   read -r -s -k1 -t 2 k </dev/tty || return
-  if [[ $k == $'\e' ]]; then
-    while read -r -s -k1 -t 0.05 c </dev/tty; do seq+=$c; [[ $c == [Mm~] || ${#seq} -gt 20 ]] && break; done
-    # SGR mouse report: [<button;column;row(M=press|m=release)
-    if [[ $seq =~ '^\[<([0-9]+);([0-9]+);([0-9]+)M$' ]] && (( match[1] == 0 )); then
-      click "$match[3]"
+  while :; do
+    if [[ $k == $'\e' ]]; then
+      seq=""
+      while read -r -s -k1 -t 0.05 c </dev/tty; do seq+=$c; [[ $c == [Mm~] || ${#seq} -gt 20 ]] && break; done
+      # SGR mouse report: [<button;column;row then M (press) or m (release)
+      if [[ $seq =~ '^\[<([0-9]+);([0-9]+);([0-9]+)([Mm])$' ]]; then
+        b=$(( match[1] & ~28 ))   # without the shift/alt/ctrl bits
+        if (( b == 64 )); then (( delta -= 3 ))
+        elif (( b == 65 )); then (( delta += 3 ))
+        elif (( b == 0 )) && [[ $match[4] == M ]]; then
+          scroll_by $delta
+          click "$match[3]"
+          return
+        fi
+      fi
+    else
+      case $k in
+        q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
+        r) FP=""; pick_terminal ;;
+      esac
     fi
-    return
-  fi
-  case $k in
-    q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
-    r) FP=""; pick_terminal ;;
-  esac
+    (( ++n < 200 )) || break
+    read -r -s -k1 -t 0.01 k </dev/tty || break
+  done
+  scroll_by $delta
 }
 
 stamp() { local f; for f; do zstat +mtime "$f" 2>/dev/null; print -n .; done }
 
+TTY_SAVED=$(stty -g </dev/tty 2>/dev/null)
+quiet_tty
 printf '\e[?25l%s' "$MOUSE_ON"
-trap 'printf "%s\e[?25h" "$MOUSE_OFF"' EXIT
+trap 'printf "%s\e[?25h" "$MOUSE_OFF"; normal_tty' EXIT
+trap 'exit 130' INT TERM HUP
 trap 'FP=' WINCH
-DIR="" LAST_FOCUSED="" TPANE="" FP=""
+DIR="" LAST_FOCUSED="" TPANE="" FP="" SCROLL=0 VIS_ROWS=0 HINT_TOP=0 HINT_BOTTOM=0
 pick_terminal
 while :; do
   read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
@@ -393,6 +451,6 @@ while :; do
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
   fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
-  [[ "$fp" != "$FP" ]] && { draw "$DIR"; FP=$fp }
+  [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done

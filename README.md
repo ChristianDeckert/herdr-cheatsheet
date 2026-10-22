@@ -125,7 +125,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 
 - `panel.zsh` manages the pane. It opens a right split labeled `cheatsheet`, and runs on herdr startup, `workspace.created`, `tab.created` and the toggle action.
 - herdr restores panes after a restart as plain shells. The startup hook finds the labeled pane and restarts the sheet in it instead of opening a second panel.
-- `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks to it.
+- `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
 - Rows that only exist in herdr's UI are dimmed and do nothing on click: help, workspace picker, goto, sidebar, scrollback editor. So are destructive ones: close pane, detach.
 
 ## Uninstall
