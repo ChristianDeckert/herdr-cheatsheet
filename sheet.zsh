@@ -189,17 +189,37 @@ render_herdr() {
     previous_tab "prev tab" herdr:prev_tab
     rename_tab "rename tab" herdr:rename:tab
     switch_tab "go to tab" ""
+    move_tab_previous "move tab left" ""
+    move_tab_next "move tab right" ""
+    close_tab "close tab" ""
     split_vertical "split right" herdr:split:right
     split_horizontal "split down" herdr:split:down
     zoom "zoom pane" herdr:zoom
     rename_pane "rename pane" herdr:rename:pane
+    cycle_pane_next "next pane" ""
+    cycle_pane_previous "prev pane" ""
+    last_pane "last pane" ""
+    resize_mode "resize mode" ""
+    clear_pane "clear pane" ""
     close_pane "close pane" ""
     workspace_picker "workspaces" ""
     new_workspace "new workspace" herdr:new_workspace
     rename_workspace "rename workspace" herdr:rename:workspace
+    next_workspace "next workspace" ""
+    previous_workspace "prev workspace" ""
+    switch_workspace "go to workspace" ""
+    close_workspace "close workspace" ""
+    new_worktree "new worktree" ""
+    open_worktree "open worktree" ""
+    next_agent "next agent" ""
+    previous_agent "prev agent" ""
+    focus_agent "go to agent" ""
+    open_notification_target "jump to notification" ""
     goto "goto" ""
     toggle_sidebar "sidebar" ""
     edit_scrollback "scrollback → editor" ""
+    settings "settings" ""
+    reload_config "reload config" herdr:reload_config
     detach "detach" ""
   )
   local name desc act k d t c
@@ -391,6 +411,7 @@ execute() { # action
     herdr:split:*) [[ -n "$TPANE" ]] && "$H" pane split "$TPANE" --direction "${a##*:}" --cwd "$DIR" --focus >/dev/null ;;
     herdr:zoom) focus_main; [[ -n "$TPANE" ]] && "$H" pane zoom "$TPANE" >/dev/null ;;
     herdr:new_workspace) "$H" workspace create --cwd "$DIR" --focus >/dev/null ;;
+    herdr:reload_config) "$H" server reload-config >/dev/null ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
     panel:refresh) pick_terminal ;;
