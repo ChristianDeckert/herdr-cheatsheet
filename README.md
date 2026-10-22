@@ -11,7 +11,7 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 - **herdr**: the core keybindings resolved from herdr's defaults plus your `config.toml` overrides, and all of your custom `[[keys.command]]` bindings with their descriptions.
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
-- **Update notice**: when a newer version is on GitHub, an `update to x.y.z` row appears under the banner. Click it or press `u` to run `herdr plugin update`, which shows what changed and asks before installing. Afterwards every open panel restarts on the new version. Otherwise a dim line confirms `✓ up to date` with the installed version, or says the check failed.
+- **Update notice**: when a newer version is on GitHub, an `update to x.y.z` row appears under the banner. Click it or press `u` to run `herdr plugin update`, which shows what changed and asks before installing. Afterwards every open panel restarts on the new version. Otherwise a dim line at the bottom confirms `✓ up to date` with the installed version, or says the check failed.
 
 Rows marked `▸` run when you click them:
 

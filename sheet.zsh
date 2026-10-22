@@ -295,6 +295,7 @@ build() {
   render_terminal
   render_agents
   render_panel
+  render_update_status
 }
 
 # The panel's own controls, laid out like the other sections; r and q also work as keys.

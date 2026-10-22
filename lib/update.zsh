@@ -58,14 +58,21 @@ read_update() {
 
 update_available() { [[ -n $UPDATE[remote] && $UPDATE[remote] != $UPDATE[installed] ]] }
 
+# An available update goes under the banner where it is seen; the quiet status lines go last.
 render_update() {
   read_update
-  if update_available; then
+  update_available || return
+  line ""
+  row "u" "update to ${UPDATE[version]:-the latest version}" $'\e[1;38;5;213m' "panel:update"
+}
+
+render_update_status() {
+  update_available && return
+  if [[ -n $UPDATE[error] ]]; then
     line ""
-    row "u" "update to ${UPDATE[version]:-the latest version}" $'\e[1;38;5;213m' "panel:update"
-  elif [[ -n $UPDATE[error] ]]; then
     line " ${D}✗ update check failed, r retries${R}"
   elif [[ -n $UPDATE[remote] ]]; then
+    line ""
     line " ${D}✓ up to date${UPDATE[current]:+ · $UPDATE[current]}${R}"
   fi
 }
