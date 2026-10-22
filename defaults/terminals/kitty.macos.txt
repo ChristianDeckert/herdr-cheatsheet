@@ -1,0 +1,18 @@
+# name: kitty
+# source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts
+⌘T|new tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌘↩|new window (split)
+⌃⇧[ ⌃⇧]|prev / next window
+⌘1..9|go to window N
+⌃⇧L|next layout
+⌘⇧D|close window
+⌘W|close tab
+⌘F|search scrollback
+⌘⌥K|clear scrollback
+⌘+ ⌘- ⌘0|font size
+⌘,|edit config
+⌃⌘,|reload config
+⌃⇧F3|command palette
+⌃⇧E|open URL (hints)
+⌃⇧H|browse scrollback

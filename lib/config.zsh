@@ -5,15 +5,20 @@ CS_CONFIG_DIR="${CHEATSHEET_CONFIG_DIR:-${HERDR_PLUGIN_CONFIG_DIR:-${XDG_CONFIG_
 CS_PLUGIN_ID="${CHEATSHEET_PLUGIN_ID:-${HERDR_PLUGIN_ID:-}}"
 HERDR_CONFIG="${HERDR_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml}"
 
-CHEATSHEET_RATIO=0.80
-CHEATSHEET_AUTO_OPEN=all
-CHEATSHEET_TERMINAL_NAME="iTerm"
-CHEATSHEET_TERMINAL_KEYS="$CS_CONFIG_DIR/terminal-keys.txt"
-CHEATSHEET_ALIAS_FILE=".project.zsh"
+# defaults; values already in the environment win, config.zsh (sourced below) wins over both
+: ${CHEATSHEET_RATIO:=0.80} ${CHEATSHEET_AUTO_OPEN:=all} ${CHEATSHEET_TERMINAL:=auto}
+: ${CHEATSHEET_TERMINAL_KEYS:=} ${CHEATSHEET_TERMINAL_NAME:=} ${CHEATSHEET_ALIAS_FILE=.project.zsh}
 
 if mkdir -p "$CS_CONFIG_DIR" 2>/dev/null; then
-  for f in config.zsh terminal-keys.txt; do
-    [[ -f "$CS_CONFIG_DIR/$f" ]] || cp "$CS_ROOT/defaults/$f" "$CS_CONFIG_DIR/$f" 2>/dev/null
-  done
+  [[ -f "$CS_CONFIG_DIR/config.zsh" ]] || cp "$CS_ROOT/defaults/config.zsh" "$CS_CONFIG_DIR/config.zsh" 2>/dev/null
 fi
 [[ -f "$CS_CONFIG_DIR/config.zsh" ]] && source "$CS_CONFIG_DIR/config.zsh"
+
+# v0.1.0 seeded an iTerm list into terminal-keys.txt. An untouched copy means "detect the terminal";
+# an edited copy keeps being shown as before.
+if [[ -n "$CHEATSHEET_TERMINAL_KEYS" && -f "$CHEATSHEET_TERMINAL_KEYS" &&
+      "$(cksum < "$CHEATSHEET_TERMINAL_KEYS")" == "3593249569 440" ]]; then
+  CHEATSHEET_TERMINAL_KEYS=""
+fi
+
+source "$CS_ROOT/lib/terminal.zsh"

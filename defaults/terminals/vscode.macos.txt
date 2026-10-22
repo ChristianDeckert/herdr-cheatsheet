@@ -1,0 +1,16 @@
+# name: VS Code terminal
+# source: https://code.visualstudio.com/docs/terminal/basics ; https://github.com/microsoft/vscode/blob/main/src/vs/workbench/contrib/terminal/browser/terminalActions.ts
+⌃`|toggle terminal
+⌃⇧`|new terminal
+⌘\|split terminal
+⌥⌘← ⌥⌘→|prev / next split pane
+⇧⌘[ ⇧⌘]|prev / next terminal group
+⌃⌘←/→/↑/↓|resize split pane
+⌘F|find
+⌘K|clear terminal
+⌘C ⌘V|copy / paste
+⌘↑ ⌘↓|prev / next command
+PgUp PgDn|scroll page
+⌥⌘PgUp ⌥⌘PgDn|scroll line up / down
+⌘Home ⌘End|scroll to top / bottom
+⇧⌘P|command palette

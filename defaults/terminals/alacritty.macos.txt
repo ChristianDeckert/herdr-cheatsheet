@@ -1,0 +1,16 @@
+# name: Alacritty
+# source: https://alacritty.org/config-alacritty-bindings.html
+⌘C ⌘V|copy / paste
+⌘N|new window
+⌘T|new tab (native)
+⌘⇧[ ⌘⇧]|prev / next tab
+⌘1 … ⌘9|go to tab (⌘9 = last)
+⌘F ⌘B|search forward / back
+⌘K|clear screen & scrollback
+⌘+ ⌘- ⌘0|font size
+⌘⌃F|toggle fullscreen
+⇧PgUp ⇧PgDn|scroll page up / down
+⇧Home ⇧End|scroll to top / bottom
+⌃⇧Space|toggle vi mode
+v y|vi: select / copy
+/ ?|vi: search fwd / back

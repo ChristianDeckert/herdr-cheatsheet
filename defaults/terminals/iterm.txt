@@ -1,0 +1,18 @@
+# name: iTerm2
+# source: https://iterm2.com/documentation-one-page.html ; https://github.com/gnachman/iTerm2/blob/master/sources/MainMenu/Base.lproj/MainMenu.xib
+⌘T|new tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌘1..9|go to tab
+⌘D|split vertically (right)
+⌘⇧D|split horizontally (down)
+⌘⌥←→↑↓|move between panes
+⌘[ ⌘]|prev / next pane
+⌘⇧↩|maximize pane
+⌘W|close pane / tab
+⌘F|find
+⌘G ⌘⇧G|find next / prev
+⌘K|clear buffer
+⌘+ ⌘- ⌘0|font size
+⌘⇧O|open quickly
+⌘⇧.|composer
+⌘,|settings

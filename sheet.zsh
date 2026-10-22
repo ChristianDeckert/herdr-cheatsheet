@@ -6,7 +6,6 @@ ROOT="${0:A:h}"
 CS_ROOT=$ROOT
 source "$ROOT/lib/config.zsh"
 CONFIG=$HERDR_CONFIG
-TERMKEYS=$CHEATSHEET_TERMINAL_KEYS
 LABEL="cheatsheet"
 zmodload -F zsh/stat b:zstat
 
@@ -34,7 +33,8 @@ load_herdr_keys() {
 }
 
 row() { # key desc color [action]
-  local kw=13 dw=$(( COLS - 17 )) mark=" " desc=$2 key
+  local kw=${KW:-13} mark=" " desc=$2 key
+  local dw=$(( COLS - kw - 4 ))
   (( dw < 8 )) && dw=8
   [[ -n "$4" ]] && mark="▸"
   key=${1[1,kw]} desc=${desc[1,dw]}
@@ -149,10 +149,38 @@ render_herdr() {
     done
 }
 
+# Sets TERMKEYS (shortcut list to show) and TERMHEAD (its heading) for the detected terminal.
+pick_terminal() {
+  local id note name
+  TERMKEYS="" TERMHEAD="" TERMHINT=""
+  if [[ -n "$CHEATSHEET_TERMINAL_KEYS" ]]; then
+    TERMKEYS=$CHEATSHEET_TERMINAL_KEYS TERMHEAD=${CHEATSHEET_TERMINAL_NAME:-Terminal}
+    return
+  fi
+  id=$(cs_detect_terminal)
+  [[ "$id" == off ]] && return
+  TERMKEYS=$(cs_terminal_file "$id")
+  [[ -n "$TERMKEYS" ]] || return
+  name=$(sed -n 's/^# name: *//p' "$TERMKEYS" | head -1)
+  if [[ "${CHEATSHEET_TERMINAL:-auto}" != auto ]]; then note=configured
+  elif [[ "$id" == generic ]]; then note="terminal not recognized"; TERMHINT="set CHEATSHEET_TERMINAL in config.zsh"
+  else note=detected
+  fi
+  TERMHEAD="${name:-$id} ${D}($note)${R}"
+}
+
 render_terminal() {
-  [[ -n "$CHEATSHEET_TERMINAL_NAME" && -s "$TERMKEYS" ]] || return
-  header "$CHEATSHEET_TERMINAL_NAME"
-  grep -v '^#' "$TERMKEYS" | while IFS='|' read -r k d; do [[ -n "$k" ]] && row "$k" "$d" "$M"; done
+  [[ -s "$TERMKEYS" ]] || return
+  header "$TERMHEAD"
+  local -a keys descs
+  local k d
+  grep -v '^#' "$TERMKEYS" | while IFS='|' read -r k d; do [[ -n "$k" ]] && { keys+=("$k"); descs+=("$d") }; done
+  # Linux-style keys (Ctrl+Shift+…) are longer than the default column
+  local KW=${#${(O@)keys//?/x}[1]} i
+  (( KW < 13 )) && KW=13
+  (( KW > 18 )) && KW=18
+  for i in {1..${#keys}}; do row "$keys[$i]" "$descs[$i]" "$M"; done
+  [[ -n "$TERMHINT" ]] && line "  ${D}$TERMHINT${R}"
 }
 
 draw() {
@@ -267,7 +295,7 @@ handle_input() {
   fi
   case $k in
     q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
-    r) FP="" ;;
+    r) FP=""; pick_terminal ;;
   esac
 }
 
@@ -277,6 +305,7 @@ printf '\e[?25l%s' "$MOUSE_ON"
 trap 'printf "%s\e[?25h" "$MOUSE_OFF"' EXIT
 trap 'FP=' WINCH
 DIR="" LAST_FOCUSED="" TPANE="" FP=""
+pick_terminal
 while :; do
   read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
   locate

@@ -1,0 +1,18 @@
+# name: Windows Terminal
+# source: https://learn.microsoft.com/en-us/windows/terminal/customize-settings/actions ; https://github.com/microsoft/terminal/blob/main/src/cascadia/TerminalSettingsModel/defaults.json
+Ctrl+Shift+T|new tab
+Ctrl+Shift+D|duplicate tab
+Alt+Shift+D|split pane (auto)
+Alt+Shift+- / +|split down / right
+Alt+Arrow|move pane focus
+Alt+Shift+Arrow|resize pane
+Ctrl+Shift+W|close pane
+Ctrl+[Shift+]Tab|next / prev tab
+Ctrl+Alt+1..9|go to tab (9 = last)
+Ctrl+Shift+F|find
+Ctrl+Shift+P|command palette
+Ctrl+,|settings
+Ctrl++ / Ctrl+-|font bigger / smaller
+Ctrl+0|reset font size
+Ctrl+Shift+C / V|copy / paste
+Alt+Enter / F11|fullscreen
