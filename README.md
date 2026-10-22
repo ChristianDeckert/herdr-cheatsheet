@@ -56,7 +56,7 @@ agents (1 blocked · 2 idle · 1 working)
 
 ## Requirements
 
-- herdr 0.9.5 or newer, on macOS or Linux
+- herdr 0.9.4 or newer, on macOS or Linux
 - `zsh` and `jq`
 - [`just`](https://github.com/casey/just) (optional, needed for the recipe section)
 
