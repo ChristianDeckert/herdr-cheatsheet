@@ -1,18 +1,22 @@
 # name: WezTerm
 # source: https://wezterm.org/config/default-keys.html
+## tabs
 ⌘T|new tab
 ⌘⇧[ ⌘⇧]|prev / next tab
 ⌘1..9|go to tab (9 = last)
+⌘W|close tab
+## panes
 ⌃⌥⇧%|split right
 ⌃⌥⇧"|split down
 ⌃⇧←→↑↓|move between panes
 ⌃⌥⇧←→↑↓|resize pane
 ⌃⇧Z|zoom pane
-⌘W|close tab
+## text
 ⌘F|find
 ⌘K|clear scrollback
+⌃⇧Space|quick select
+⌃⇧X|copy mode
+## app
 ⌘= ⌘- ⌘0|font size
 ⌘R|reload config
 ⌃⇧P|command palette
-⌃⇧Space|quick select
-⌃⇧X|copy mode

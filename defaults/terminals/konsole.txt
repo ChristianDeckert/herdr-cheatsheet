@@ -1,18 +1,22 @@
 # name: Konsole
 # source: https://docs.kde.org/stable_kf6/en/konsole/konsole/commandreference.html
+## tabs
 Ctrl+Shift+T|new tab
 Ctrl+Shift+N|new window
 Ctrl+Shift+W|close session (tab)
-Ctrl+Shift+C / V|copy / paste
 Shift+Left / Right|prev / next tab
+## panes
 Ctrl+(|split view left / right
 Ctrl+)|split view top / bottom
 Ctrl+Shift+E|maximize current view
 Ctrl+Shift+[ / ]|shrink / expand view
+## text
+Ctrl+Shift+C / V|copy / paste
 Ctrl+Shift+F|find
 F3 / Shift+F3|find next / previous
+Ctrl+Shift+K|clear scrollback & reset
+## app
 Ctrl++ / Ctrl+-|font bigger / smaller
 Ctrl+0|reset font size
-Ctrl+Shift+K|clear scrollback & reset
 F11|fullscreen
 Ctrl+Shift+M|toggle menubar

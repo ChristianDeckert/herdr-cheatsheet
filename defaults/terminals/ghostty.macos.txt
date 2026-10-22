@@ -1,8 +1,11 @@
 # name: Ghostty
 # source: https://ghostty.org/docs/config/keybind ; https://github.com/ghostty-org/ghostty/blob/main/src/config/Config.zig
+## tabs
 ⌘T|new tab
 ⌘⇧[ ⌘⇧]|prev / next tab
 ⌘1..8 ⌘9|go to tab / last tab
+⌘⌥W|close tab
+## panes
 ⌘D|split right
 ⌘⇧D|split down
 ⌘⌥←→↑↓|move between splits
@@ -10,9 +13,10 @@
 ⌘⇧↩|zoom split
 ⌃⌘=|equalize splits
 ⌘W|close split / tab
-⌘⌥W|close tab
+## text
 ⌘F|find
 ⌘K|clear screen
+## app
 ⌘+ ⌘- ⌘0|font size
 ⌘, ⌘⇧,|open / reload config
 ⌘⇧P|command palette

@@ -1,18 +1,22 @@
 # name: Terminal
 # source: https://support.apple.com/guide/terminal/keyboard-shortcuts-trmlshtcts/mac
+## tabs
 ⌘T|new tab
 ⌘N|new window
 ⌃⇥ ⌃⇧⇥|next / prev tab
 ⌘` ⌘⇧~|next / prev window
+⌘W|close tab
+⌘⇧\|show all tabs
+## panes
 ⌘D|split into two panes
 ⌘⇧D|close split pane
-⌘W|close tab
+## text
 ⌘F|find
 ⌘G ⌘⇧G|find next / prev
 ⌘K|clear to start
 ⌘L|clear to previous mark
 ⌘↑ ⌘↓|prev / next mark
+## app
 ⌘+ ⌘-|font bigger / smaller
-⌘⇧\|show all tabs
 ⌃⌘F|full screen
 ⌘,|settings

@@ -56,6 +56,19 @@ line() { OUT+=("$1"); PLAIN+=(""); ACT+=("") }
 
 header() { (( ${#OUT} )) && line ""; line "${B}$1${R}" }
 
+# A group inside a section: a colored label and a dim rule to the panel edge.
+group() { # label color
+  local rule=$(( COLS - ${#1} - 3 ))
+  (( rule < 1 )) && rule=1
+  line " $2$1$R ${D}${(l:rule::─:)}${R}"
+}
+
+# Sections set PENDING_GROUP at a group marker; the label is printed before the group's first row, so a
+# group whose keys are all unbound doesn't show up at all.
+flush_group() { # color
+  [[ -n $PENDING_GROUP ]] && { group "$PENDING_GROUP" "$1"; PENDING_GROUP="" }
+}
+
 # "ANSI Shadow" letters with single-width strokes: █ is the letter face, the box-drawing lines are its
 # drop shadow. Six rows; CHEATSHEET is 52 columns wide.
 typeset -A GLYPH=(
@@ -86,7 +99,7 @@ shadow_line() { # text color -> line with solid faces and faint shadow lines
 
 render_banner() {
   [[ $CHEATSHEET_BANNER == off ]] && return
-  local where=${1/#$HOME/~} l ch text
+  local where="${1/#$HOME/~}" l ch text
   if (( COLS >= 54 )); then
     for l in {1..6}; do
       text=""
@@ -186,50 +199,65 @@ render_herdr() {
   header "herdr ${D}(prefix $PREFIX)${R}"
   # name, label, click action ("" = only reachable from herdr's UI, shown dimmed)
   local -a curated=(
-    help "help (all keys)" ""
+    "## tabs" "" ""
     new_tab "new tab" herdr:new_tab
     next_tab "next tab" herdr:next_tab
     previous_tab "prev tab" herdr:prev_tab
-    rename_tab "rename tab" herdr:rename:tab
     switch_tab "go to tab" ""
     move_tab_previous "move tab left" herdr:move_tab:-1
     move_tab_next "move tab right" herdr:move_tab:1
+    rename_tab "rename tab" herdr:rename:tab
     close_tab "close tab" herdr:close_tab
+    "## panes" "" ""
     split_vertical "split right" herdr:split:right
     split_horizontal "split down" herdr:split:down
-    zoom "zoom pane" herdr:zoom
-    rename_pane "rename pane" herdr:rename:pane
+    focus_pane_hjkl "focus pane h/j/k/l" ""
     cycle_pane_next "next pane" herdr:pane:1
     cycle_pane_previous "prev pane" herdr:pane:-1
     last_pane "last pane" ""
+    zoom "zoom pane" herdr:zoom
     resize_mode "resize mode" ""
+    rename_pane "rename pane" herdr:rename:pane
     clear_pane "clear pane" herdr:clear_pane
+    edit_scrollback "scrollback → editor" herdr:scrollback
     close_pane "close pane" herdr:close_pane
-    workspace_picker "workspaces" ""
+    "## workspaces" "" ""
+    workspace_picker "workspace picker" ""
     new_workspace "new workspace" herdr:new_workspace
-    rename_workspace "rename workspace" herdr:rename:workspace
     next_workspace "next workspace" herdr:workspace:1
     previous_workspace "prev workspace" herdr:workspace:-1
     switch_workspace "go to workspace" ""
+    rename_workspace "rename workspace" herdr:rename:workspace
     close_workspace "close workspace" herdr:close_workspace
     new_worktree "new worktree" herdr:new_worktree
     open_worktree "open worktree" ""
+    "## agents" "" ""
     next_agent "next agent" herdr:agent:1
     previous_agent "prev agent" herdr:agent:-1
     focus_agent "go to agent" ""
     open_notification_target "jump to notification" ""
+    "## herdr" "" ""
+    help "help (all keys)" ""
     goto "goto" ""
     toggle_sidebar "sidebar" ""
-    edit_scrollback "scrollback → editor" herdr:scrollback
     settings "settings" ""
     reload_config "reload config" herdr:reload_config
     detach "detach" ""
   )
-  local name desc act k d t c
+  local name desc act k d t c PENDING_GROUP=""
   for name desc act in "${curated[@]}"; do
-    [[ -n "${KEYS[$name]}" ]] && row "$(fmt_key "${KEYS[$name]}")" "$desc" "$Y" "$act"
+    if [[ $name == "## "* ]]; then PENDING_GROUP=${name#"## "}; continue; fi
+    if [[ $name == focus_pane_hjkl ]]; then
+      [[ -n "${KEYS[focus_pane_left]}" ]] || continue
+      flush_group "$Y"
+      row "$(fmt_key "${KEYS[focus_pane_left]}")…${KEYS[focus_pane_right]##*+}" "$desc" "$Y"
+      continue
+    fi
+    [[ -n "${KEYS[$name]}" ]] || continue
+    flush_group "$Y"
+    row "$(fmt_key "${KEYS[$name]}")" "$desc" "$Y" "$act"
   done
-  [[ -n "${KEYS[focus_pane_left]}" ]] && row "$(fmt_key "${KEYS[focus_pane_left]}")…${KEYS[focus_pane_right]##*+}" "focus pane h/j/k/l" "$Y"
+  PENDING_GROUP="your keys"
   # custom [[keys.command]] bindings: key, description, type, command
   awk 'function flush(){ if(k!="") print k"\t"d"\t"t"\t"c; k=d=t=c="" }
        function val(s){ sub(/^[a-z_]+ *= */,"",s); if(s ~ /^'"'''"'/){ sub(/^'"'''"'/,"",s); sub(/'"'''"' *$/,"",s) }
@@ -247,6 +275,7 @@ render_herdr() {
         shell) act="bg:$c" ;;
         *) act="" ;;
       esac
+      flush_group "$Y"
       row "$(fmt_key "$k")" "${d:-custom command}" "$Y" "$act"
     done
 }
@@ -274,14 +303,26 @@ pick_terminal() {
 render_terminal() {
   [[ -s "$TERMKEYS" ]] || return
   header "$TERMHEAD"
+  # keys|description lines; "## label" starts a group (stored as key "##"), other "#" lines are metadata
   local -a keys descs
-  local k d
-  grep -v '^#' "$TERMKEYS" | while IFS='|' read -r k d; do [[ -n "$k" ]] && { keys+=("$k"); descs+=("$d") }; done
+  local l PENDING_GROUP=""
+  while IFS= read -r l; do
+    case $l in
+      "## "*) keys+=("##") descs+=("${l#"## "}") ;;
+      "#"*|"") ;;
+      *) keys+=("${l%%|*}") descs+=("${${l#*|}:#$l}") ;;
+    esac
+  done < "$TERMKEYS"
   # Linux-style keys (Ctrl+Shift+…) are longer than the default column
-  local KW=${#${(O@)keys//?/x}[1]} i
+  local -a widths=(${${keys:#"##"}//?/x})
+  local KW=${#${(O@)widths}[1]} i
   (( KW < 13 )) && KW=13
   (( KW > 18 )) && KW=18
-  for i in {1..${#keys}}; do row "$keys[$i]" "$descs[$i]" "$M"; done
+  for i in {1..${#keys}}; do
+    if [[ $keys[$i] == "##" ]]; then PENDING_GROUP=$descs[$i]; continue; fi
+    flush_group "$M"
+    row "$keys[$i]" "$descs[$i]" "$M"
+  done
   [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
 }
 

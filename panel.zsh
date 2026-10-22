@@ -21,16 +21,33 @@ cs_panes() { # panes-json filter
 # The sheet runs as a plugin pane: herdr starts it directly, without the user's shell, and closes the
 # pane when it exits. herdr always splits plugin panes 50/50, so the width is applied afterwards.
 open_right_of() { # pane
-  local new amount dir=right
+  local new amount ratio dir=right
   new=$("$H" plugin pane open --plugin "$CS_PLUGIN_ID" --entrypoint sheet --placement split \
           --target-pane "$1" --direction right --no-focus | jq -r '.result.plugin_pane.pane.pane_id // empty')
   if [[ -z "$new" ]]; then
     print -u2 "cheatsheet: could not open a plugin pane next to $1"
     return 1
   fi
-  amount=$(( CHEATSHEET_RATIO - 0.5 ))
+  ratio=${CHEATSHEET_RATIO:-$(main_ratio "$1" "$new")} || return 1
+  amount=$(( ratio - 0.5 ))
   (( amount < 0 )) && { dir=left; amount=$(( -amount )) }
   "$H" pane resize --pane "$1" --direction $dir --amount $(printf '%.3f' $amount) >/dev/null
+}
+
+# Share of the split the main pane keeps so the panel gets CHEATSHEET_WIDTH content columns, at most
+# 40% of the split. A pane's frame (border and scrollbar) takes 3 columns of its width.
+main_ratio() { # main-pane panel-pane
+  local w
+  w=$("$H" pane layout --pane "$2" | jq -r --arg a "$1" --arg b "$2" \
+        '[.result.layout.panes[] | select(.pane_id == $a or .pane_id == $b) | .rect.width] | add // empty')
+  if [[ -z "$w" ]] || (( w <= 0 )); then
+    print -u2 "cheatsheet: no layout for $2, keeping the default split"
+    return 1
+  fi
+  local panel=$(( CHEATSHEET_WIDTH + 3 ))
+  (( panel > w * 4 / 10 )) && panel=$(( w * 4 / 10 ))
+  # integer division rounds down, so herdr's rounding can only make the panel wider, never narrower
+  printf '0.%03d' $(( (w - panel) * 1000 / w ))
 }
 
 # Opens a plugin pane in place of a cheat-sheet pane that runs in a shell, then closes that pane.

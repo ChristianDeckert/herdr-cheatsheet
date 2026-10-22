@@ -1,16 +1,20 @@
 # name: Ghostty
 # source: https://ghostty.org/docs/config/keybind ; https://github.com/ghostty-org/ghostty/blob/main/src/config/Config.zig
+## tabs
 Ctrl+Shift+T|new tab
 Ctrl+PgUp / PgDn|prev / next tab
 Alt+1..8 / Alt+9|go to tab / last tab
+Ctrl+Shift+W|close tab
+## panes
 Ctrl+Shift+O|split right
 Ctrl+Shift+E|split down
 Ctrl+Alt+←→↑↓|move between splits
 Ctrl+Shift+Enter|zoom split
-Ctrl+Shift+W|close tab
+## text
 Ctrl+Shift+F|find
 Ctrl+Shift+C|copy
 Ctrl+Shift+V|paste
+## app
 Ctrl+= / Ctrl+-|font size +/-
 Ctrl+0|reset font size
 Ctrl+,|open config

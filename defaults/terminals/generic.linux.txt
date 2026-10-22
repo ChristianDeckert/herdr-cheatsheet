@@ -1,10 +1,12 @@
 # name: Terminal
 # source: https://help.gnome.org/users/gnome-terminal/stable/adv-keyboard-shortcuts.html.en ; https://docs.kde.org/stable_kf6/en/konsole/konsole/commandreference.html ; https://tiswww.case.edu/php/chet/readline/rluserman.html
+## text
 Ctrl+Shift+C / V|copy / paste
 Shift+PgUp / PgDn|scroll page up / down
-Ctrl++ / Ctrl+-|font bigger / smaller
-Ctrl+Shift+N|new window (most apps)
 Ctrl+L|clear screen (shell)
 Ctrl+R|search history (shell)
 Ctrl+A / Ctrl+E|line start / end
 Ctrl+U / Ctrl+W|cut to line start / word
+## app
+Ctrl++ / Ctrl+-|font bigger / smaller
+Ctrl+Shift+N|new window (most apps)

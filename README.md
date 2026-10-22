@@ -8,7 +8,7 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 
 - **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
 - **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects.
-- **herdr**: the core keybindings resolved from herdr's defaults plus your `config.toml` overrides, and all of your custom `[[keys.command]]` bindings with their descriptions.
+- **herdr**: the keybindings resolved from herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, followed by your custom `[[keys.command]]` bindings under "your keys".
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
 - **Update notice**: when a newer version is on GitHub, an `update to x.y.z` row appears under the banner. Click it or press `u` to run `herdr plugin update`, which shows what changed and asks before installing. Afterwards every open panel restarts on the new version. Otherwise a dim line at the bottom confirms `✓ up to date` with the installed version, or says the check failed.
@@ -35,16 +35,23 @@ just — my-app
  ▸ test          [xt] Run tests; one spec: `just test SomeSpec`
 
 herdr (prefix ^B)
-   ^B ?          help (all keys)
+ tabs ─────────────────────────────────────────────
  ▸ ^B c          new tab
  ▸ ^B ⇧t         rename tab
-   ^B ⇧x         close tab
+ ▸ ^B ⇧x         close tab
+ panes ────────────────────────────────────────────
  ▸ ^B v          split right
+ ▸ ^B z          zoom pane
+ herdr ────────────────────────────────────────────
+   ^B ?          help (all keys)
+ your keys ────────────────────────────────────────
  ▸ ^B ⌥r         just run (build + launch in simulator)
  ▸ ^B ⇧k         toggle cheat sheet
 
 iTerm2 (detected)
+ tabs ─────────────────────────────────────────────
    ⌘T            new tab
+ panes ────────────────────────────────────────────
    ⌘D            split vertically (right)
 
 agents (1 blocked · 2 idle · 1 working)
@@ -92,7 +99,8 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `CHEATSHEET_RATIO` | `0.80` | Share kept by the main pane (`0.80` = 20% wide panel) |
+| `CHEATSHEET_WIDTH` | `54` | Panel width in content columns; 54 fits the full logo. At most 40% of the tab |
+| `CHEATSHEET_RATIO` | — | A fixed share kept by the main pane instead (`0.80` = 20% wide panel) |
 | `CHEATSHEET_AUTO_OPEN` | `all` | `all`: every new tab · `first`: tab 1 of each workspace · `off`: toggle key only |
 | `CHEATSHEET_BANNER` | `on` | `off` hides the logo banner |
 | `CHEATSHEET_AGENTS` | `all` | `all` agents, `attention` (only blocked and done ones) or `off` |
@@ -124,12 +132,12 @@ Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the
 | `windows-terminal` | Windows Terminal (WSL) | Linux |
 | `generic` | anything else | macOS, Linux |
 
-Every list contains defaults confirmed in the terminal's official documentation or default configuration; each file names its sources in a `# source:` line. If you've remapped keys, override a list: copy it from the plugin's `defaults/terminals/` into a `terminals/` folder inside the config directory, keep the file name (for example `terminals/ghostty.macos.txt`) and edit it. Format: a `# name: Heading` line, then one `keys|description` per line.
+Every list contains defaults confirmed in the terminal's official documentation or default configuration; each file names its sources in a `# source:` line. If you've remapped keys, override a list: copy it from the plugin's `defaults/terminals/` into a `terminals/` folder inside the config directory, keep the file name (for example `terminals/ghostty.macos.txt`) and edit it. Format: a `# name: Heading` line, then one `keys|description` per line. A `## label` line starts a group.
 
 ## How it works
 
 - The panel is a herdr plugin pane: herdr starts `sheet.zsh` directly, without your shell, and closes the pane when it exits (`q`, Ctrl-C or the toggle key). Nothing is typed into a shell, so your shell history, prompt hooks and `.zshrc` are never involved.
-- `panel.zsh` opens and closes it on herdr startup, `workspace.created`, `tab.created` and the toggle action. herdr opens plugin panes at half width, so it then resizes the split to `CHEATSHEET_RATIO`.
+- `panel.zsh` opens and closes it on herdr startup, `workspace.created`, `tab.created` and the toggle action. herdr opens plugin panes at half width, so it then resizes the split to `CHEATSHEET_WIDTH` columns (or `CHEATSHEET_RATIO`).
 - When a panel starts, it compares the installed commit (`herdr plugin list --json`) with the repository's latest one using a single `git ls-remote` to github.com. If they differ, it also downloads the new `herdr-plugin.toml` to show the version number. Panels that start together share one result, which is stored with any error in the plugin's state directory (`~/.local/state/herdr/plugins/christiandeckert.cheatsheet/update`). Local or linked installs aren't checked.
 - herdr restores plugin panes after a server restart as plain shells. The startup hook closes such a pane and opens a fresh panel in its place, instead of opening a second one.
 - Before 0.5.0 the panel was started by typing a command into a shell pane, which added a `CHEATSHEET_PLUGIN_ID=… zsh …/sheet.zsh` line to your shell history every time. Panels from those versions replace themselves with a plugin pane after updating. To remove the old history lines (zsh, macOS `sed`): `sed -i '' '/CHEATSHEET_PLUGIN_ID=/d' ~/.zsh_history`.

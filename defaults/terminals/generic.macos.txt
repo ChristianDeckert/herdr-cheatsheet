@@ -1,9 +1,11 @@
 # name: Terminal
 # source: https://support.apple.com/guide/terminal/keyboard-shortcuts-trmlshtcts/mac ; https://tiswww.case.edu/php/chet/readline/rluserman.html
+## text
 ⌘C ⌘V|copy / paste
-⌘N|new window
-⌘+ ⌘-|font bigger / smaller
 ⌃L|clear screen (shell)
 ⌃R|search history (shell)
 ⌃A ⌃E|line start / end
 ⌃U ⌃W|cut to line start / word
+## app
+⌘N|new window
+⌘+ ⌘-|font bigger / smaller

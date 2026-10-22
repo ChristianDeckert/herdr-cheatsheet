@@ -2,7 +2,9 @@
 # Content settings apply within seconds (or press r in the panel); width and auto-open
 # apply to newly opened panels.
 
-# Share kept by the main pane: 0.80 = 20% wide panel.
+# Panel width in content columns; 54 fits the full logo. Capped at 40% of the tab.
+# CHEATSHEET_WIDTH=54
+# Or a fixed share kept by the main pane instead (0.80 = 20% wide panel):
 # CHEATSHEET_RATIO=0.80
 
 # Logo banner at the top: on, off.

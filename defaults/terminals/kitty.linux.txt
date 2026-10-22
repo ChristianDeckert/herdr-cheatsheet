@@ -1,16 +1,20 @@
 # name: kitty
 # source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts
+## tabs
 Ctrl+Shift+T|new tab
 Ctrl+Shift+← / →|prev / next tab
+Ctrl+Shift+Q|close tab
+## panes
 Ctrl+Shift+Enter|new window (split)
 Ctrl+Shift+[ / ]|prev / next window
 Ctrl+Shift+1..9|go to window N
 Ctrl+Shift+L|next layout
 Ctrl+Shift+W|close window
-Ctrl+Shift+Q|close tab
+## text
 Ctrl+Shift+/|search scrollback
 Ctrl+Shift+C|copy
 Ctrl+Shift+V|paste
+## app
 Ctrl+Shift+= / -|font size +/-
 Ctrl+Shift+Bksp|reset font size
 Ctrl+Shift+F2|edit config
