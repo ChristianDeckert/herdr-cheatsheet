@@ -16,7 +16,7 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 Rows marked `▸` run when you click them:
 
 - **Recipes** run inside the panel. Press any key to return, and Ctrl-C stops long-running ones.
-- **herdr actions** like new tab, split, zoom or new workspace run through herdr's CLI. Rename rows ask for the new name inside the panel.
+- **herdr actions** like new tab, split, zoom, next pane, move tab or close tab run through herdr. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
 
@@ -134,7 +134,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 - herdr restores plugin panes after a server restart as plain shells. The startup hook closes such a pane and opens a fresh panel in its place, instead of opening a second one.
 - Before 0.5.0 the panel was started by typing a command into a shell pane, which added a `CHEATSHEET_PLUGIN_ID=… zsh …/sheet.zsh` line to your shell history every time. Panels from those versions replace themselves with a plugin pane after updating. To remove the old history lines (zsh, macOS `sed`): `sed -i '' '/CHEATSHEET_PLUGIN_ID=/d' ~/.zsh_history`.
 - `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
-- The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Rows that only exist in herdr's UI are dimmed and do nothing on click: help, workspace picker, goto, sidebar, resize mode, settings, scrollback editor. So are destructive ones: close pane, tab or workspace, and detach.
+- The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Every action herdr can run from outside its UI is clickable, using its CLI or socket API. That includes closing a pane, tab or workspace, which happens immediately, like the key. The dimmed rows are herdr UI only: help, workspace picker, goto, sidebar, resize mode, settings, jump to notification, open worktree and detach. Key ranges like go to tab `1..9`, focus pane h/j/k/l and last pane are dimmed too.
 
 ## Uninstall
 

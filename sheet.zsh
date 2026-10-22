@@ -10,6 +10,7 @@ source "$ROOT/lib/update.zsh"
 CONFIG=$HERDR_CONFIG
 LABEL="cheatsheet"
 zmodload -F zsh/stat b:zstat
+zmodload zsh/net/socket
 
 typeset -A KEYS ALIAS
 typeset -a OUT ACT PLAIN
@@ -183,7 +184,7 @@ render_just() {
 
 render_herdr() {
   header "herdr ${D}(prefix $PREFIX)${R}"
-  # name, label, click action ("" = UI-only or destructive, shown dimmed)
+  # name, label, click action ("" = only reachable from herdr's UI, shown dimmed)
   local -a curated=(
     help "help (all keys)" ""
     new_tab "new tab" herdr:new_tab
@@ -191,35 +192,35 @@ render_herdr() {
     previous_tab "prev tab" herdr:prev_tab
     rename_tab "rename tab" herdr:rename:tab
     switch_tab "go to tab" ""
-    move_tab_previous "move tab left" ""
-    move_tab_next "move tab right" ""
-    close_tab "close tab" ""
+    move_tab_previous "move tab left" herdr:move_tab:-1
+    move_tab_next "move tab right" herdr:move_tab:1
+    close_tab "close tab" herdr:close_tab
     split_vertical "split right" herdr:split:right
     split_horizontal "split down" herdr:split:down
     zoom "zoom pane" herdr:zoom
     rename_pane "rename pane" herdr:rename:pane
-    cycle_pane_next "next pane" ""
-    cycle_pane_previous "prev pane" ""
+    cycle_pane_next "next pane" herdr:pane:1
+    cycle_pane_previous "prev pane" herdr:pane:-1
     last_pane "last pane" ""
     resize_mode "resize mode" ""
-    clear_pane "clear pane" ""
-    close_pane "close pane" ""
+    clear_pane "clear pane" herdr:clear_pane
+    close_pane "close pane" herdr:close_pane
     workspace_picker "workspaces" ""
     new_workspace "new workspace" herdr:new_workspace
     rename_workspace "rename workspace" herdr:rename:workspace
-    next_workspace "next workspace" ""
-    previous_workspace "prev workspace" ""
+    next_workspace "next workspace" herdr:workspace:1
+    previous_workspace "prev workspace" herdr:workspace:-1
     switch_workspace "go to workspace" ""
-    close_workspace "close workspace" ""
-    new_worktree "new worktree" ""
+    close_workspace "close workspace" herdr:close_workspace
+    new_worktree "new worktree" herdr:new_worktree
     open_worktree "open worktree" ""
-    next_agent "next agent" ""
-    previous_agent "prev agent" ""
+    next_agent "next agent" herdr:agent:1
+    previous_agent "prev agent" herdr:agent:-1
     focus_agent "go to agent" ""
     open_notification_target "jump to notification" ""
     goto "goto" ""
     toggle_sidebar "sidebar" ""
-    edit_scrollback "scrollback → editor" ""
+    edit_scrollback "scrollback → editor" herdr:scrollback
     settings "settings" ""
     reload_config "reload config" herdr:reload_config
     detach "detach" ""
@@ -372,25 +373,122 @@ run_inline() { # command [wait]
   focus_main
 }
 
+# Asks for one line inside this pane; REPLY is empty when the user just presses Enter.
+prompt_line() { # title hint
+  printf '%s\e[?25h\e[H\e[2J' "$MOUSE_OFF"
+  printf "${B}%s${R}\n${D}%s${R}\n\n> " "$1" "$2"
+  drain 0.05
+  normal_tty
+  read -r REPLY </dev/tty
+  quiet_tty
+  printf '\e[?25l%s' "$MOUSE_ON"
+  FP=""
+}
+
 # Asks for a new name in this pane; the pane target is the tab's main pane, never the sheet itself.
 rename_prompt() { # tab | workspace | pane
-  local id cur new
+  local id cur
   case $1 in
     tab) id=$HERDR_TAB_ID; cur=$("$H" tab get "$id" | jq -r '.result.tab.label // empty') ;;
     workspace) id=$HERDR_WORKSPACE_ID; cur=$("$H" workspace get "$id" | jq -r '.result.workspace.label // empty') ;;
     pane) id=$TPANE; cur=$("$H" pane get "$id" | jq -r '.result.pane.label // .result.pane.terminal_title_stripped // empty') ;;
   esac
   [[ -n "$id" ]] || return
-  printf '%s\e[?25h\e[H\e[2J' "$MOUSE_OFF"
-  printf "${B}Rename %s${R}\n${D}current: %s — Enter on empty keeps it${R}\n\n> " "$1" "${cur:-—}"
-  drain 0.05
-  normal_tty
-  read -r new </dev/tty
-  quiet_tty
-  [[ -n "$new" ]] && "$H" "$1" rename "$id" "$new" >/dev/null
-  printf '\e[?25l%s' "$MOUSE_ON"
-  FP=""
+  prompt_line "Rename $1" "current: ${cur:-—} — Enter on empty keeps it"
+  [[ -n "$REPLY" ]] && "$H" "$1" rename "$id" "$REPLY" >/dev/null
   focus_main
+}
+
+new_worktree() {
+  prompt_line "New worktree" "branch for a worktree of ${DIR/#$HOME/~} — Enter on empty cancels"
+  [[ -n "$REPLY" ]] && run_inline "${(q)H} worktree create --cwd ${(q)DIR} --branch ${(q)REPLY} --focus" wait
+}
+
+# Shows an error in the panel's last row for a moment.
+fail() { # message
+  printf '\e[%d;1H\e[2K\e[31m %s\e[0m' "$LINES" "${1[1,COLS-2]}"
+  sleep 2
+  FP=""
+}
+
+# Runs a herdr CLI command and shows its error if it fails.
+herdr_do() { # args...
+  local out
+  out=$("$H" "$@" 2>&1) && return
+  fail "$(print -r -- "$out" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "$out")"
+  return 1
+}
+
+# Calls herdr's socket API, for actions its CLI doesn't have. Shows the error if the call fails.
+api() { # method params-json
+  local fd line
+  if ! zsocket "$HERDR_SOCKET_PATH" 2>/dev/null; then
+    fail "$1: can't reach herdr's socket"
+    return 1
+  fi
+  fd=$REPLY
+  print -r -- "{\"id\":\"cheatsheet\",\"method\":\"$1\",\"params\":$2}" >&$fd
+  read -r -t 5 line <&$fd
+  exec {fd}>&-
+  if [[ -z $line ]] || print -r -- "$line" | jq -e '.error' >/dev/null; then
+    fail "$1: $(print -r -- "$line" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "no response")"
+    return 1
+  fi
+}
+
+# Non-sheet panes of this tab, in herdr's order.
+tab_panes() {
+  print -r -- "$ALLPANES" | jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
+    '.result.panes[] | select(.tab_id == $t and .pane_id != $s and .label != "cheatsheet") | .pane_id'
+}
+
+# Prints the item $1 steps away from $2 among the remaining arguments, wrapping around. Without a
+# current item, +1 gives the first and -1 the last.
+step() { # +1|-1 current items...
+  local d=$1 cur=$2; shift 2
+  (( $# )) || return 1
+  local i=${@[(i)$cur]}
+  (( i > $# )) && { (( d > 0 )) && i=0 || i=$(( $# + 1 )) }
+  print -r -- ${@[$(( (i - 1 + d + $# * 2) % $# + 1 ))]}
+}
+
+pane_neighbor() { # +1 | -1
+  local next
+  next=$(step $1 "$TPANE" $(tab_panes)) || return
+  api pane.focus "{\"pane_id\":\"$next\"}"
+}
+
+# herdr closes a tab together with its last pane; the sheet doesn't count, so do the same.
+close_pane() {
+  [[ -n "$TPANE" ]] || return
+  local -a ps=($(tab_panes))
+  if (( ${#ps} <= 1 )); then herdr_do tab close "$HERDR_TAB_ID"
+  else herdr_do pane close "$TPANE"
+  fi
+}
+
+move_tab() { # +1 | -1
+  local -a tabs=($("$H" tab list --workspace "$HERDR_WORKSPACE_ID" | jq -r '.result.tabs[].tab_id'))
+  local i=${tabs[(i)$HERDR_TAB_ID]} n=${#tabs} to
+  (( i <= n )) || return
+  # herdr inserts before the tab at insert_index, counted while the moved tab is still in place
+  if (( $1 > 0 )); then (( i < n )) || return; to=$(( i + 1 ))
+  else (( i > 1 )) || return; to=$(( i - 2 ))
+  fi
+  api tab.move "{\"tab_id\":\"$HERDR_TAB_ID\",\"insert_index\":$to}"
+}
+
+workspace_neighbor() { # +1 | -1
+  local next
+  next=$(step $1 "$HERDR_WORKSPACE_ID" $("$H" workspace list | jq -r '.result.workspaces[].workspace_id')) || return
+  herdr_do workspace focus "$next"
+}
+
+# Relative to the agent in this tab's main pane, else from the start of the list.
+agent_neighbor() { # +1 | -1
+  local next
+  next=$(step $1 "$TPANE" $(print -r -- "$ALLPANES" | jq -r '.result.panes[] | select((.agent // "") != "") | .pane_id')) || return
+  herdr_do agent focus "$next"
 }
 
 tab_neighbor() { # +1 | -1
@@ -416,6 +514,16 @@ execute() { # action
     herdr:zoom) focus_main; [[ -n "$TPANE" ]] && "$H" pane zoom "$TPANE" >/dev/null ;;
     herdr:new_workspace) "$H" workspace create --cwd "$DIR" --focus >/dev/null ;;
     herdr:reload_config) "$H" server reload-config >/dev/null ;;
+    herdr:close_tab) herdr_do tab close "$HERDR_TAB_ID" ;;
+    herdr:close_pane) close_pane ;;
+    herdr:close_workspace) herdr_do workspace close "$HERDR_WORKSPACE_ID" ;;
+    herdr:pane:*) pane_neighbor "${a##*:}" ;;
+    herdr:move_tab:*) move_tab "${a##*:}" ;;
+    herdr:workspace:*) workspace_neighbor "${a##*:}" ;;
+    herdr:agent:*) agent_neighbor "${a##*:}" ;;
+    herdr:clear_pane) [[ -n "$TPANE" ]] && api pane.clear "{\"pane_id\":\"$TPANE\"}" ;;
+    herdr:scrollback) [[ -n "$TPANE" ]] && api pane.edit_scrollback "{\"pane_id\":\"$TPANE\"}" ;;
+    herdr:new_worktree) new_worktree ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
     panel:refresh) pick_terminal; update_check force ;;
