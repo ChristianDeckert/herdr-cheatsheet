@@ -10,13 +10,13 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 - **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects.
 - **herdr**: the core keybindings resolved from herdr's defaults plus your `config.toml` overrides, and all of your custom `[[keys.command]]` bindings with their descriptions.
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
-- **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first.
+- **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
 
 Rows marked `▸` run when you click them:
 
 - **Recipes** run inside the panel. Press any key to return, and Ctrl-C stops long-running ones.
-- **herdr actions** like new tab, split, zoom, rename or new workspace run through herdr's CLI.
-- **Your custom bindings** run as configured.
+- **herdr actions** like new tab, split, zoom or new workspace run through herdr's CLI. Rename rows ask for the new name inside the panel.
+- **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
 
 ```
@@ -45,9 +45,9 @@ iTerm2 (detected)
   ⌘T            new tab
   ⌘D            split vertically (right)
 
-agents (1 blocked · 1 working · 2 idle)
+agents (1 blocked · 2 idle · 1 working)
  ▸● blocked  api · Waiting for approval
- ▸◐ working  my-app · Refactor login flow
+ ▸◐ working  my-app · Refactor login flow (here)
  ▸○ idle     docs · Update changelog
  ▸○ idle     my-app · Fix flaky test
 
@@ -125,7 +125,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 
 - `panel.zsh` manages the pane. It opens a right split labeled `cheatsheet`, and runs on herdr startup, `workspace.created`, `tab.created` and the toggle action.
 - herdr restores panes after a restart as plain shells. The startup hook finds the labeled pane and restarts the sheet in it instead of opening a second panel.
-- `sheet.zsh` draws the panel and redraws only when the focused project, the justfile, your herdr config, the terminal list or the pane size changes. It enables mouse reporting so herdr forwards clicks to it.
+- `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks to it.
 - Rows that only exist in herdr's UI are dimmed and do nothing on click: help, workspace picker, goto, sidebar, scrollback editor. So are destructive ones: close pane, detach.
 
 ## Uninstall
