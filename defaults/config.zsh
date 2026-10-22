@@ -12,6 +12,9 @@
 # CHEATSHEET_AGENTS=all
 # CHEATSHEET_AGENTS_MAX=8
 
+# Update notice: on (ask GitHub for a newer version when a panel starts and on refresh), off.
+# CHEATSHEET_UPDATE_CHECK=on
+
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).
 # CHEATSHEET_AUTO_OPEN=all
 

@@ -3,13 +3,15 @@
 CS_ROOT="${CS_ROOT:-${0:A:h:h}}"
 CS_CONFIG_DIR="${CHEATSHEET_CONFIG_DIR:-${HERDR_PLUGIN_CONFIG_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr-cheatsheet}}"
 CS_PLUGIN_ID="${CHEATSHEET_PLUGIN_ID:-${HERDR_PLUGIN_ID:-}}"
+CS_STATE_DIR="${CHEATSHEET_STATE_DIR:-${HERDR_PLUGIN_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/herdr-cheatsheet}}"
 HERDR_CONFIG="${HERDR_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml}"
 
 # defaults; values already in the environment win, config.zsh (sourced below) wins over both
 : ${CHEATSHEET_RATIO:=0.80} ${CHEATSHEET_AUTO_OPEN:=all} ${CHEATSHEET_TERMINAL:=auto}
 : ${CHEATSHEET_TERMINAL_KEYS:=} ${CHEATSHEET_TERMINAL_NAME:=} ${CHEATSHEET_ALIAS_FILE=.project.zsh}
-: ${CHEATSHEET_BANNER:=on} ${CHEATSHEET_AGENTS:=all} ${CHEATSHEET_AGENTS_MAX:=8}
+: ${CHEATSHEET_BANNER:=on} ${CHEATSHEET_AGENTS:=all} ${CHEATSHEET_AGENTS_MAX:=8} ${CHEATSHEET_UPDATE_CHECK:=on}
 
+mkdir -p "$CS_STATE_DIR" 2>/dev/null
 if mkdir -p "$CS_CONFIG_DIR" 2>/dev/null; then
   [[ -f "$CS_CONFIG_DIR/config.zsh" ]] || cp "$CS_ROOT/defaults/config.zsh" "$CS_CONFIG_DIR/config.zsh" 2>/dev/null
 fi

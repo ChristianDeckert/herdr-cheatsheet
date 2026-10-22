@@ -20,7 +20,7 @@ cs_panes() { # panes-json filter
 # The sheet runs as a plain pane process, so it gets the plugin context through its command line.
 start() { # pane
   "$H" pane rename "$1" "$LABEL" >/dev/null
-  "$H" pane run "$1" "CHEATSHEET_PLUGIN_ID=${(q)CS_PLUGIN_ID} CHEATSHEET_CONFIG_DIR=${(q)CS_CONFIG_DIR} zsh ${(q)ROOT}/sheet.zsh" >/dev/null
+  "$H" pane run "$1" "CHEATSHEET_PLUGIN_ID=${(q)CS_PLUGIN_ID} CHEATSHEET_CONFIG_DIR=${(q)CS_CONFIG_DIR} CHEATSHEET_STATE_DIR=${(q)CS_STATE_DIR} zsh ${(q)ROOT}/sheet.zsh" >/dev/null
 }
 
 open_right_of() { # pane

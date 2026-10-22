@@ -11,6 +11,7 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 - **herdr**: the core keybindings resolved from herdr's defaults plus your `config.toml` overrides, and all of your custom `[[keys.command]]` bindings with their descriptions.
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
+- **Update notice**: when a newer version is on GitHub, an `update to x.y.z` row appears under the banner. Click it or press `u` to run `herdr plugin update`, which shows what changed and asks before installing. Afterwards every open panel restarts on the new version. Otherwise a dim line confirms `✓ up to date` with the installed version, or says the check failed.
 
 Rows marked `▸` run when you click them:
 
@@ -96,13 +97,14 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_BANNER` | `on` | `off` hides the logo banner |
 | `CHEATSHEET_AGENTS` | `all` | `all` agents, `attention` (only blocked and done ones) or `off` |
 | `CHEATSHEET_AGENTS_MAX` | `8` | Maximum agent rows, the rest is summarized as `+N more` |
+| `CHEATSHEET_UPDATE_CHECK` | `on` | `off` turns off the update notice and its request to GitHub |
 | `CHEATSHEET_TERMINAL` | `auto` | `auto` detects the terminal, `off` hides the section, or a terminal id from the table below |
 | `CHEATSHEET_OS` | detected | `macos` or `linux`, picks which list variant is shown |
 | `CHEATSHEET_TERMINAL_KEYS` | — | Show your own `keys\|description` file instead of a built-in list |
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
 
-Content changes show up within two seconds; press `r` in the panel to detect the terminal again. Width and auto-open settings apply to newly opened panels.
+Content changes show up within two seconds; press `r` in the panel to detect the terminal again and check for updates. Width and auto-open settings apply to newly opened panels.
 
 ## Terminal detection
 
@@ -127,6 +129,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 ## How it works
 
 - `panel.zsh` manages the pane. It opens a right split labeled `cheatsheet`, and runs on herdr startup, `workspace.created`, `tab.created` and the toggle action.
+- When a panel starts, it compares the installed commit (`herdr plugin list --json`) with the repository's latest one using a single `git ls-remote` to github.com. If they differ, it also downloads the new `herdr-plugin.toml` to show the version number. Panels that start together share one result, which is stored with any error in the plugin's state directory (`~/.local/state/herdr/plugins/christiandeckert.cheatsheet/update`). Local or linked installs aren't checked.
 - herdr restores panes after a restart as plain shells. The startup hook finds the labeled pane and restarts the sheet in it instead of opening a second panel.
 - `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
 - The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Rows that only exist in herdr's UI are dimmed and do nothing on click: help, workspace picker, goto, sidebar, resize mode, settings, scrollback editor. So are destructive ones: close pane, tab or workspace, and detach.

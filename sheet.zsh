@@ -1,10 +1,12 @@
 #!/bin/zsh
 # Cheat-sheet panel: logo, agent overview, just recipes of the focused project, herdr and terminal keybindings.
-# Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, q = close panel.
+# Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, q = close panel,
+# u = update (when one is available).
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
 CS_ROOT=$ROOT
 source "$ROOT/lib/config.zsh"
+source "$ROOT/lib/update.zsh"
 CONFIG=$HERDR_CONFIG
 LABEL="cheatsheet"
 zmodload -F zsh/stat b:zstat
@@ -287,6 +289,7 @@ build() {
   OUT=() ACT=() PLAIN=()
   load_herdr_keys
   render_banner "$1"
+  render_update
   render_just "$1"
   render_herdr
   render_terminal
@@ -414,7 +417,8 @@ execute() { # action
     herdr:reload_config) "$H" server reload-config >/dev/null ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
-    panel:refresh) pick_terminal ;;
+    panel:refresh) pick_terminal; update_check force ;;
+    panel:update) update_now ;;
     panel:close) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
   esac
 }
@@ -454,7 +458,8 @@ handle_input() {
     else
       case $k in
         q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
-        r) FP=""; pick_terminal ;;
+        r) FP=""; pick_terminal; update_check force ;;
+        u) update_available && { update_now; FP="" } ;;
       esac
     fi
     (( ++n < 200 )) || break
@@ -471,15 +476,18 @@ printf '\e[?25l%s' "$MOUSE_ON"
 trap 'printf "%s\e[?25h" "$MOUSE_OFF"; normal_tty' EXIT
 trap 'exit 130' INT TERM HUP
 trap 'FP=' WINCH
+ROOT_STAMP=$(zstat +mtime "$ROOT_FILE" 2>/dev/null)
+update_check
 DIR="" LAST_FOCUSED="" TPANE="" FP="" SCROLL=0 VIS_ROWS=0 HINT_TOP=0 HINT_BOTTOM=0
 pick_terminal
 while :; do
   read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
+  follow_update
   locate
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done
