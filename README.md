@@ -1,7 +1,7 @@
 # herdr-cheatsheet
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="The cheat-sheet panel: CHEATSHEET banner, herdr keybindings, detected iTerm2 shortcuts and the agent overview" width="420">
+  <img src="docs/screenshot.png" alt="The cheat-sheet panel: CHEATSHEET banner, just recipes, herdr keybindings, detected iTerm2 shortcuts and the agent overview" width="420">
 </p>
 
 A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
