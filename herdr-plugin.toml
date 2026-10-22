@@ -1,0 +1,29 @@
+id = "christiandeckert.cheatsheet"
+name = "Cheat Sheet"
+version = "0.1.0"
+min_herdr_version = "0.9.5"
+description = "Clickable side panel with the project's just recipes plus herdr and terminal keybindings"
+platforms = ["macos", "linux"]
+
+[[startup]]
+command = ["zsh", "panel.zsh", "ensure"]
+
+[[events]]
+on = "workspace.created"
+command = ["zsh", "panel.zsh", "ensure"]
+
+[[events]]
+on = "tab.created"
+command = ["zsh", "panel.zsh", "tab"]
+
+[[actions]]
+id = "toggle"
+title = "Toggle cheat sheet"
+contexts = ["workspace"]
+command = ["zsh", "panel.zsh", "toggle"]
+
+[[actions]]
+id = "ensure"
+title = "Ensure cheat sheet in tab 1"
+contexts = ["workspace"]
+command = ["zsh", "panel.zsh", "ensure"]

@@ -1,0 +1,17 @@
+# Terminal shortcuts shown in the cheat sheet: "<keys>|<description>". Edit freely; lines starting with # are ignored.
+⌘T|new tab
+⌘1..9|go to tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌘D|split right
+⌘⇧D|split down
+⌘[ ⌘]|prev / next split
+⌘⇧↩|maximize split
+⌘F|find
+⌘K|clear buffer
+⌘;|autocomplete
+⌘⇧H|paste history
+⌘⌥B|instant replay
+⌘⇧B|toolbelt
+⌘/|find cursor
+⌘↩|full screen
+⌘+ ⌘- ⌘0|font size
