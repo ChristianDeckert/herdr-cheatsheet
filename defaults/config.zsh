@@ -17,6 +17,12 @@
 # Update notice: on (ask GitHub for a newer version when a panel starts and on refresh), off.
 # CHEATSHEET_UPDATE_CHECK=on
 
+# Colors: retro (pastel palette, deeper on light backgrounds) or terminal (the theme's own colors).
+# The panel's "t" toggle overrides this for all panels.
+# CHEATSHEET_COLORS=retro
+# Light or dark background: auto (ask the terminal), dark, light.
+# CHEATSHEET_APPEARANCE=auto
+
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).
 # CHEATSHEET_AUTO_OPEN=all
 

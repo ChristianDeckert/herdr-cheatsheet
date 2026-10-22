@@ -63,7 +63,7 @@ render_update() {
   read_update
   update_available || return
   line ""
-  row "u" "update to ${UPDATE[version]:-the latest version}" $'\e[1;38;5;213m' "panel:update"
+  row "u" "update to ${UPDATE[version]:-the latest version}" "$B$K" "panel:update"
 }
 
 render_update_status() {

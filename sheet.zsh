@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Cheat-sheet panel: logo, agent overview, just recipes of the focused project, herdr and terminal keybindings.
 # Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, b = logo on/off,
-# q = close panel, u = update (when one is available).
+# t = retro/terminal colors, q = close panel, u = update (when one is available).
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
 CS_ROOT=$ROOT
@@ -15,13 +15,53 @@ zmodload zsh/net/socket
 typeset -A KEYS ALIAS
 typeset -a OUT ACT PLAIN
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
-# keys of clickable rows: the pastel pink of the logo's top line
-K=$'\e[38;5;213m'
-# group labels: the lavender of the logo's middle line
-G=$'\e[38;5;141m'
-# Sheet mode: SGR mouse reporting on and auto-wrap off. Without wrap, a line wider than the pane is cut
-# at the edge instead of taking a second screen row, which would shift every row below (and its click).
-MOUSE_ON=$'\e[?1000h\e[?1006h\e[?7l' MOUSE_OFF=$'\e[?1000l\e[?1006l\e[?7h'
+# Sheet mode: SGR mouse reporting on, auto-wrap off and color-scheme reports on. Without wrap, a line
+# wider than the pane is cut at the edge instead of taking a second screen row, which would shift every
+# row below (and its click). The reports (CSI ?997;1n dark, ;2n light) come whenever the theme changes.
+MOUSE_ON=$'\e[?1000h\e[?1006h\e[?7l\e[?2031h' MOUSE_OFF=$'\e[?1000l\e[?1006l\e[?7h\e[?2031l'
+
+# Colors of the logo rows (BANNER_SGR), keys of clickable rows (K) and group labels (G). "retro" is the
+# pastel palette, with deeper tones on light backgrounds; "terminal" uses the theme's own ANSI colors.
+# The panel's colors toggle is shared by all panels and wins over CHEATSHEET_COLORS.
+APPEARANCE=dark
+COLORS_FILE="$CS_STATE_DIR/colors"
+colors_mode() {
+  local v=$CHEATSHEET_COLORS
+  [[ -f $COLORS_FILE ]] && v=$(<$COLORS_FILE)
+  [[ $v == terminal ]] && print terminal || print retro
+}
+
+toggle_colors() {
+  { [[ $(colors_mode) == terminal ]] && print retro || print terminal } > "$COLORS_FILE.tmp" &&
+    mv "$COLORS_FILE.tmp" "$COLORS_FILE"
+}
+
+apply_palette() {
+  local -a sgr
+  if [[ $(colors_mode) == terminal ]]; then sgr=(95 35 35 34 36 36 35 34)
+  elif [[ $APPEARANCE == light ]]; then sgr=(38\;5\;{162,128,98,62,30,30,162,98})
+  else sgr=(38\;5\;{213,177,141,111,87,87,213,141})
+  fi
+  BANNER_SGR=(${sgr[1,6]})
+  K=$'\e['$sgr[7]'m' G=$'\e['$sgr[8]'m'
+}
+
+# Sets APPEARANCE from the terminal: its explicit color-scheme report if it sends one, else the
+# brightness of its background (the formula herdr uses). herdr answers both for the attached terminal.
+query_theme() {
+  if [[ $CHEATSHEET_APPEARANCE == (dark|light) ]]; then APPEARANCE=$CHEATSHEET_APPEARANCE; return; fi
+  local reply="" c
+  printf '\e]11;?\e\\\e[?996n' > /dev/tty
+  while read -r -s -k1 -t 0.3 c </dev/tty; do
+    reply+=$c
+    [[ $reply == *$'\e[?997;'[12]n ]] && break
+  done
+  if [[ $reply =~ $'\e\\[\\?997;([12])n' ]]; then
+    [[ $match[1] == 2 ]] && APPEARANCE=light || APPEARANCE=dark
+  elif [[ $reply =~ 'rgb:([0-9a-fA-F]{2})[0-9a-fA-F]*/([0-9a-fA-F]{2})[0-9a-fA-F]*/([0-9a-fA-F]{2})' ]]; then
+    (( 16#$match[1] * 299 + 16#$match[2] * 587 + 16#$match[3] * 114 >= 128000 )) && APPEARANCE=light || APPEARANCE=dark
+  fi
+}
 
 fmt_key() { # "prefix+alt+r" -> "^B ⌥r"
   local k=$1
@@ -84,11 +124,10 @@ typeset -A GLYPH=(
   S1 '████╗' S2 '█╔══╝' S3 '████╗' S4 '╚══█║' S5 '████║' S6 '╚═══╝'
 )
 # 256-color retro gradient per row (pink → lavender → aqua); shadow lines use the row color, faint
-BANNER_COLORS=(213 177 141 111 87 87)
 COMPACT_LOGO=('┌─┐┬ ┬┌─┐┌─┐┌┬┐┌─┐┬ ┬┌─┐┌─┐┌┬┐' '│  ├─┤├┤ ├─┤ │ └─┐├─┤├┤ ├┤  │ ' '└─┘┴ ┴└─┘┴ ┴ ┴ └─┘┴ ┴└─┘└─┘ ┴ ')
 
-shadow_line() { # text color -> line with solid faces and faint shadow lines
-  local face=$'\e[0;38;5;'$2'm' shade=$'\e[0;2;38;5;'$2'm' out="" cur="" ch cls
+shadow_line() { # text sgr -> line with solid faces and faint shadow lines
+  local face=$'\e[0;'$2'm' shade=$'\e[0;2;'$2'm' out="" cur="" ch cls
   for ch in ${(s::)1}; do
     case $ch in
       █) cls=$face ;;
@@ -132,10 +171,10 @@ render_banner() {
     for l in {1..6}; do
       text=""
       for ch in C H E A T S H E E T; do text+=${GLYPH[$ch$l]}; done
-      shadow_line "$text" $BANNER_COLORS[$l]
+      shadow_line "$text" "$BANNER_SGR[$l]"
     done
   elif (( COLS >= 33 )); then
-    for l in {1..3}; do line " "$'\e[38;5;'$BANNER_COLORS[$(( 2 * l - 1 ))]'m'"$COMPACT_LOGO[$l]$R"; done
+    for l in {1..3}; do line " "$'\e['$BANNER_SGR[$(( 2 * l - 1 ))]'m'"$COMPACT_LOGO[$l]$R"; done
   else
     line " ${B}cheatsheet${R}"
   fi
@@ -357,6 +396,7 @@ render_terminal() {
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
 build() {
   OUT=() ACT=() PLAIN=()
+  apply_palette
   sync_label
   load_herdr_keys
   render_banner "$1"
@@ -375,6 +415,9 @@ render_panel() {
   row "r" "refresh" "$K" "panel:refresh"
   if banner_on; then row "b" "hide logo" "$K" "panel:banner"
   else row "b" "show logo" "$K" "panel:banner"
+  fi
+  if [[ $(colors_mode) == terminal ]]; then row "t" "retro colors" "$K" "panel:colors"
+  else row "t" "terminal colors" "$K" "panel:colors"
   fi
   row "q" "close panel" "$K" "panel:close"
 }
@@ -599,8 +642,9 @@ execute() { # action
     herdr:new_worktree) new_worktree ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
-    panel:refresh) pick_terminal; update_check force ;;
+    panel:refresh) pick_terminal; query_theme; update_check force ;;
     panel:banner) toggle_banner ;;
+    panel:colors) toggle_colors ;;
     panel:update) update_now ;;
     panel:close) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
   esac
@@ -626,7 +670,7 @@ handle_input() {
   while :; do
     if [[ $k == $'\e' ]]; then
       seq=""
-      while read -r -s -k1 -t 0.05 c </dev/tty; do seq+=$c; [[ $c == [Mm~] || ${#seq} -gt 20 ]] && break; done
+      while read -r -s -k1 -t 0.05 c </dev/tty; do seq+=$c; [[ $c == [Mmn~] || ${#seq} -gt 20 ]] && break; done
       # SGR mouse report: [<button;column;row then M (press) or m (release)
       if [[ $seq =~ '^\[<([0-9]+);([0-9]+);([0-9]+)([Mm])$' ]]; then
         b=$(( match[1] & ~28 ))   # without the shift/alt/ctrl bits
@@ -637,12 +681,15 @@ handle_input() {
           click "$match[3]"
           return
         fi
+      elif [[ $seq =~ '^\[\?997;([12])n$' ]]; then
+        [[ $match[1] == 2 ]] && APPEARANCE=light || APPEARANCE=dark
       fi
     else
       case $k in
         q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
-        r) FP=""; pick_terminal; update_check force ;;
+        r) FP=""; pick_terminal; query_theme; update_check force ;;
         b) toggle_banner ;;
+        t) toggle_colors ;;
         u) update_available && { update_now; FP="" } ;;
       esac
     fi
@@ -667,6 +714,7 @@ printf '\e[?25l%s' "$MOUSE_ON"
 trap 'printf "%s\e[?25h" "$MOUSE_OFF"; normal_tty' EXIT
 trap 'exit 130' INT TERM HUP
 trap 'FP=' WINCH
+query_theme
 ROOT_STAMP=$(zstat +mtime "$ROOT_FILE" 2>/dev/null)
 update_check
 DIR="" LAST_FOCUSED="" TPANE="" FP="" SCROLL=0 VIS_ROWS=0 HINT_TOP=0 HINT_BOTTOM=0
@@ -678,7 +726,7 @@ while :; do
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done
