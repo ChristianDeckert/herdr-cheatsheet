@@ -29,29 +29,31 @@ Rows marked `▸` run when you click them:
  ~/code/my-app
 
 just — my-app
- ▸build         [xb] Build the app for the simulator
- ▸run           [xr] Build, install and launch on the simulator
- ▸test          [xt] Run tests; one spec: `just test SomeSpec`
+ ▸ build         [xb] Build the app for the simulator
+ ▸ run           [xr] Build, install and launch on the simulator
+ ▸ test          [xt] Run tests; one spec: `just test SomeSpec`
 
 herdr (prefix ^B)
-  ^B ?          help (all keys)
- ▸^B c          new tab
- ▸^B ⇧t         rename tab
- ▸^B v          split right
- ▸^B ⌥r         just run (build + launch in simulator)
- ▸^B ⇧k         toggle cheat sheet
+   ^B ?          help (all keys)
+ ▸ ^B c          new tab
+ ▸ ^B ⇧t         rename tab
+ ▸ ^B v          split right
+ ▸ ^B ⌥r         just run (build + launch in simulator)
+ ▸ ^B ⇧k         toggle cheat sheet
 
 iTerm2 (detected)
-  ⌘T            new tab
-  ⌘D            split vertically (right)
+   ⌘T            new tab
+   ⌘D            split vertically (right)
 
 agents (1 blocked · 2 idle · 1 working)
- ▸● blocked  api · Waiting for approval
- ▸◐ working  my-app · Refactor login flow (here)
- ▸○ idle     docs · Update changelog
- ▸○ idle     my-app · Fix flaky test
+ ▸ ● blocked  api · Waiting for approval
+ ▸ ◐ working  my-app · Refactor login flow (here)
+ ▸ ○ idle     docs · Update changelog
+ ▸ ○ idle     my-app · Fix flaky test
 
- click ▸ to run · r refresh · q close
+panel
+ ▸ r             refresh
+ ▸ q             close panel
 ```
 
 ## Requirements

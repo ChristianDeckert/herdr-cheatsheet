@@ -36,15 +36,15 @@ load_herdr_keys() {
 
 row() { # key desc color [action]
   local kw=${KW:-13} mark=" " desc=$2 key
-  local dw=$(( COLS - kw - 4 ))
+  local dw=$(( COLS - kw - 5 ))
   (( dw < 8 )) && dw=8
   [[ -n "$4" ]] && mark="▸"
   key=${1[1,kw]} desc=${desc[1,dw]}
-  PLAIN+=("$(printf " %s%-${kw}s %s" "$mark" "$key" "$desc")")
+  PLAIN+=("$(printf " %s %-${kw}s %s" "$mark" "$key" "$desc")")
   if [[ -n "$4" ]]; then
-    OUT+=("$(printf " ${B}%s${R}%s%-${kw}s%s %s" "$mark" "$3" "$key" "$R" "$desc")")
+    OUT+=("$(printf " ${B}%s${R} %s%-${kw}s%s %s" "$mark" "$3" "$key" "$R" "$desc")")
   else
-    OUT+=("$(printf "  ${D}%-${kw}s %s${R}" "$key" "$desc")")
+    OUT+=("$(printf "   ${D}%-${kw}s %s${R}" "$key" "$desc")")
   fi
   ACT+=("$4")
 }
@@ -126,7 +126,7 @@ render_agents() {
       [[ $tab == $HERDR_TAB_ID ]] && desc+=" (here)"
       KW=10 row "${AGENT_LABEL[$st]:-· $st}" "$desc" "${AGENT_COLOR[$st]:-$D}" "agent:$p"
     done
-  (( n > max )) && line "  ${D}+$(( n - max )) more${R}"
+  (( n > max )) && line "   ${D}+$(( n - max )) more${R}"
 }
 
 # Sets DIR (project dir to show) and TPANE (main pane in this tab that actions target).
@@ -259,7 +259,7 @@ render_terminal() {
   (( KW < 13 )) && KW=13
   (( KW > 18 )) && KW=18
   for i in {1..${#keys}}; do row "$keys[$i]" "$descs[$i]" "$M"; done
-  [[ -n "$TERMHINT" ]] && line "  ${D}$TERMHINT${R}"
+  [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
 }
 
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
@@ -271,8 +271,14 @@ build() {
   render_herdr
   render_terminal
   render_agents
-  line ""
-  line " ${D}click ▸ to run · scroll · r refresh · q close${R}"
+  render_panel
+}
+
+# The panel's own controls, laid out like the other sections; r and q also work as keys.
+render_panel() {
+  header "panel"
+  row "r" "refresh" "$C" "panel:refresh"
+  row "q" "close panel" "$C" "panel:close"
 }
 
 # Sets REPLY to the line cut to the pane width; color codes are copied, only visible characters count.
@@ -387,6 +393,8 @@ execute() { # action
     herdr:new_workspace) "$H" workspace create --cwd "$DIR" --focus >/dev/null ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
+    panel:refresh) pick_terminal ;;
+    panel:close) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
   esac
 }
 
