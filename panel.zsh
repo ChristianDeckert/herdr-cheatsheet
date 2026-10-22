@@ -14,40 +14,47 @@ panes() { "$H" pane list | jq -c '.result.panes' }
 
 # cheat-sheet panes (labeled or running) matching a jq filter on tab/workspace
 cs_panes() { # panes-json filter
-  print -r -- "$1" | jq -r --arg l "$LABEL" ".[] | select($2) |
-    select(.label == \$l or .terminal_title_stripped == \$l) | .pane_id"
+  print -r -- "$1" | cs_jq -r "$CS_SHEET_JQ .[] | select($2) | select(sheet) | .pane_id"
 }
 
 # The sheet runs as a plugin pane: herdr starts it directly, without the user's shell, and closes the
 # pane when it exits. herdr always splits plugin panes 50/50, so the width is applied afterwards.
 open_right_of() { # pane
-  local new amount ratio dir=right
+  local new
   new=$("$H" plugin pane open --plugin "$CS_PLUGIN_ID" --entrypoint sheet --placement split \
           --target-pane "$1" --direction right --no-focus | jq -r '.result.plugin_pane.pane.pane_id // empty')
   if [[ -z "$new" ]]; then
     print -u2 "cheatsheet: could not open a plugin pane next to $1"
     return 1
   fi
-  ratio=${CHEATSHEET_RATIO:-$(main_ratio "$1" "$new")} || return 1
-  amount=$(( ratio - 0.5 ))
-  (( amount < 0 )) && { dir=left; amount=$(( -amount )) }
-  "$H" pane resize --pane "$1" --direction $dir --amount $(printf '%.3f' $amount) >/dev/null
+  size_panel "$1" "$new"
 }
 
-# Share of the split the main pane keeps so the panel gets CHEATSHEET_WIDTH content columns, at most
-# 40% of the split. A pane's frame (border and scrollbar) takes 3 columns of its width.
-main_ratio() { # main-pane panel-pane
-  local w
-  w=$("$H" pane layout --pane "$2" | jq -r --arg a "$1" --arg b "$2" \
-        '[.result.layout.panes[] | select(.pane_id == $a or .pane_id == $b) | .rect.width] | add // empty')
-  if [[ -z "$w" ]] || (( w <= 0 )); then
-    print -u2 "cheatsheet: no layout for $2, keeping the default split"
+# Gives the panel CHEATSHEET_WIDTH content columns, at most 40% of its split, or the fixed share
+# CHEATSHEET_RATIO. A pane's frame (border and scrollbar) takes 3 columns of its width. herdr's resize
+# amount is a change of the split's ratio, so it is measured from the ratio the two panes have now.
+size_panel() { # main-pane panel-pane
+  local mw pw w panel want now delta dir=right
+  read -r mw pw < <("$H" pane layout --pane "$2" | jq -r --arg a "$1" --arg b "$2" \
+    '.result.layout.panes as $p | [($p[] | select(.pane_id == $a) | .rect.width), ($p[] | select(.pane_id == $b) | .rect.width)] | @tsv')
+  if [[ -z "$pw" ]] || (( mw + pw <= 0 )); then
+    print -u2 "cheatsheet: no layout for $1 and $2, keeping the split as it is"
     return 1
   fi
-  local panel=$(( CHEATSHEET_WIDTH + 3 ))
-  (( panel > w * 4 / 10 )) && panel=$(( w * 4 / 10 ))
-  # integer division rounds down, so herdr's rounding can only make the panel wider, never narrower
-  printf '0.%03d' $(( (w - panel) * 1000 / w ))
+  w=$(( mw + pw ))
+  if [[ -n "$CHEATSHEET_RATIO" ]]; then
+    want=$(printf '%.0f' $(( CHEATSHEET_RATIO * 1000 )))
+  else
+    panel=$(( CHEATSHEET_WIDTH + 3 ))
+    (( panel > w * 4 / 10 )) && panel=$(( w * 4 / 10 ))
+    # integer division rounds down, so herdr's rounding can only make the panel wider, never narrower
+    want=$(( (w - panel) * 1000 / w ))
+  fi
+  now=$(( mw * 1000 / w ))
+  delta=$(( want - now ))
+  (( delta < 0 )) && { dir=left; delta=$(( -delta )) }
+  (( delta < 3 )) && return
+  "$H" pane resize --pane "$1" --direction $dir --amount $(printf '0.%03d' $delta) >/dev/null
 }
 
 # Opens a plugin pane in place of a cheat-sheet pane that runs in a shell, then closes that pane.
@@ -55,11 +62,16 @@ replace() { # pane
   local all tab target
   all=$(panes)
   tab=$(print -r -- "$all" | jq -r --arg p "$1" '.[] | select(.pane_id == $p) | .tab_id')
-  target=$(print -r -- "$all" | jq -r --arg t "$tab" --arg l "$LABEL" \
-    '[.[] | select(.tab_id == $t and .label != $l and .terminal_title_stripped != $l)][0].pane_id // empty')
+  target=$(print -r -- "$all" | cs_jq -r --arg t "$tab" \
+    "$CS_SHEET_JQ"' [.[] | select(.tab_id == $t and (sheet | not))][0].pane_id // empty')
   [[ -n "$target" ]] || return
-  # open first: when a migrating sheet calls this for its own pane, closing it ends this script too
-  open_right_of "$target" && "$H" pane close "$1" >/dev/null
+  if [[ "$1" == "$HERDR_PANE_ID" ]]; then
+    # a migrating sheet replaces its own pane: closing it ends this script, so the new panel opens first
+    open_right_of "$target" && "$H" pane close "$1" >/dev/null
+  else
+    # closed first, so the new panel is sized against the full width
+    "$H" pane close "$1" >/dev/null && open_right_of "$target"
+  fi
 }
 
 ensure_tab() { # tab

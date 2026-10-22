@@ -24,4 +24,19 @@ if [[ -n "$CHEATSHEET_TERMINAL_KEYS" && -f "$CHEATSHEET_TERMINAL_KEYS" &&
   CHEATSHEET_TERMINAL_KEYS=""
 fi
 
+# Cheat-sheet panes are recognized by their title "cheatsheet" while the sheet runs, by the label
+# "cheatsheet" (set while the logo is hidden, and by versions before 0.5.5), or by their working
+# directory: herdr runs plugin panes in the plugin root and restores them there, as plain shells, after
+# a server restart. A GitHub install keeps every version in its own checkout below one directory, so
+# that directory covers panels started by older versions too. Linked installs skip the directory test,
+# since a developer's own shells may sit in the plugin root.
+if [[ $CS_ROOT == */checkout && ${CS_ROOT:h:h:t} == "${CS_PLUGIN_ID}-"* ]]; then
+  CS_PANE_HOME="${CS_ROOT:h:h}/"
+else
+  CS_PANE_HOME=""
+fi
+CS_SHEET_JQ='def sheet: .label == "cheatsheet" or .terminal_title_stripped == "cheatsheet"
+  or ($home != "" and ((.cwd // "") | startswith($home)));'
+cs_jq() { jq --arg home "$CS_PANE_HOME" "$@" }
+
 source "$CS_ROOT/lib/terminal.zsh"

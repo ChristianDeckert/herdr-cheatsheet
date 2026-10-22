@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Cheat-sheet panel: logo, agent overview, just recipes of the focused project, herdr and terminal keybindings.
-# Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, q = close panel,
-# u = update (when one is available).
+# Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, b = logo on/off,
+# q = close panel, u = update (when one is available).
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
 CS_ROOT=$ROOT
@@ -101,8 +101,32 @@ shadow_line() { # text color -> line with solid faces and faint shadow lines
   line " $out$R"
 }
 
+# The logo toggle in the panel section is shared by all panels and wins over CHEATSHEET_BANNER.
+BANNER_FILE="$CS_STATE_DIR/banner"
+banner_on() {
+  local v=$CHEATSHEET_BANNER
+  [[ -f $BANNER_FILE ]] && v=$(<$BANNER_FILE)
+  [[ $v != off ]]
+}
+
+toggle_banner() {
+  { banner_on && print off || print on } > "$BANNER_FILE.tmp" && mv "$BANNER_FILE.tmp" "$BANNER_FILE"
+}
+
+# herdr shows a pane's label in its frame. The logo already names the panel, so the label is only set
+# while the logo is hidden.
+LABEL_SHOWN=""
+sync_label() {
+  local want=on
+  banner_on && want=off
+  [[ $want == $LABEL_SHOWN ]] && return
+  if [[ $want == on ]]; then herdr_do pane rename "$HERDR_PANE_ID" "$LABEL"
+  else herdr_do pane rename "$HERDR_PANE_ID" --clear
+  fi && LABEL_SHOWN=$want
+}
+
 render_banner() {
-  [[ $CHEATSHEET_BANNER == off ]] && return
+  banner_on || return
   local where="${1/#$HOME/~}" l ch text
   if (( COLS >= 54 )); then
     for l in {1..6}; do
@@ -154,13 +178,13 @@ locate() {
   local all p d
   all=$("$H" pane list 2>/dev/null) || return
   ALLPANES=$all
-  read -r p d < <(print -r -- "$all" | jq -r --arg w "$HERDR_WORKSPACE_ID" --arg s "$HERDR_PANE_ID" \
-    '.result.panes[] | select(.focused and .workspace_id == $w and .pane_id != $s and .label != "cheatsheet")
+  read -r p d < <(print -r -- "$all" | cs_jq -r --arg w "$HERDR_WORKSPACE_ID" --arg s "$HERDR_PANE_ID" \
+    "$CS_SHEET_JQ"' .result.panes[] | select(.focused and .workspace_id == $w and .pane_id != $s and (sheet | not))
      | "\(.pane_id) \(.foreground_cwd // .cwd)"' | head -1)
   [[ -n "$d" ]] && { DIR=$d; LAST_FOCUSED=$p }
   # actions need a pane in this tab: the last focused one if it lives here, else the first non-sheet pane
-  TPANE=$(print -r -- "$all" | jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" --arg l "$LAST_FOCUSED" \
-    '[.result.panes[] | select(.tab_id == $t and .pane_id != $s and .label != "cheatsheet")]
+  TPANE=$(print -r -- "$all" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" --arg l "$LAST_FOCUSED" \
+    "$CS_SHEET_JQ"' [.result.panes[] | select(.tab_id == $t and .pane_id != $s and (sheet | not))]
      | (map(select(.pane_id == $l)) + .) | first | .pane_id // empty')
   if [[ -z "$DIR" ]]; then
     DIR=$(print -r -- "$all" | jq -r --arg p "$TPANE" '.result.panes[] | select(.pane_id == $p) | .foreground_cwd // .cwd' | head -1)
@@ -333,6 +357,7 @@ render_terminal() {
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
 build() {
   OUT=() ACT=() PLAIN=()
+  sync_label
   load_herdr_keys
   render_banner "$1"
   render_update
@@ -348,6 +373,9 @@ build() {
 render_panel() {
   header "panel"
   row "r" "refresh" "$K" "panel:refresh"
+  if banner_on; then row "b" "hide logo" "$K" "panel:banner"
+  else row "b" "show logo" "$K" "panel:banner"
+  fi
   row "q" "close panel" "$K" "panel:close"
 }
 
@@ -483,8 +511,8 @@ api() { # method params-json
 
 # Non-sheet panes of this tab, in herdr's order.
 tab_panes() {
-  print -r -- "$ALLPANES" | jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
-    '.result.panes[] | select(.tab_id == $t and .pane_id != $s and .label != "cheatsheet") | .pane_id'
+  print -r -- "$ALLPANES" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
+    "$CS_SHEET_JQ"' .result.panes[] | select(.tab_id == $t and .pane_id != $s and (sheet | not)) | .pane_id'
 }
 
 # Prints the item $1 steps away from $2 among the remaining arguments, wrapping around. Without a
@@ -572,6 +600,7 @@ execute() { # action
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
     panel:refresh) pick_terminal; update_check force ;;
+    panel:banner) toggle_banner ;;
     panel:update) update_now ;;
     panel:close) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
   esac
@@ -613,6 +642,7 @@ handle_input() {
       case $k in
         q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
         r) FP=""; pick_terminal; update_check force ;;
+        b) toggle_banner ;;
         u) update_available && { update_now; FP="" } ;;
       esac
     fi
@@ -648,7 +678,7 @@ while :; do
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done

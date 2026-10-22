@@ -62,6 +62,7 @@ agents (1 blocked · 2 idle · 1 working)
 
 panel
  ▸ r             refresh
+ ▸ b             hide logo
  ▸ q             close panel
 ```
 
@@ -102,7 +103,7 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_WIDTH` | `54` | Panel width in content columns; 54 fits the full logo. At most 40% of the tab |
 | `CHEATSHEET_RATIO` | — | A fixed share kept by the main pane instead (`0.80` = 20% wide panel) |
 | `CHEATSHEET_AUTO_OPEN` | `all` | `all`: every new tab · `first`: tab 1 of each workspace · `off`: toggle key only |
-| `CHEATSHEET_BANNER` | `on` | `off` hides the logo banner |
+| `CHEATSHEET_BANNER` | `on` | `off` hides the logo banner. The panel's `b` row toggles it for all panels and overrides this setting |
 | `CHEATSHEET_AGENTS` | `all` | `all` agents, `attention` (only blocked and done ones) or `off` |
 | `CHEATSHEET_AGENTS_MAX` | `8` | Maximum agent rows, the rest is summarized as `+N more` |
 | `CHEATSHEET_UPDATE_CHECK` | `on` | `off` turns off the update notice and its request to GitHub |
@@ -140,6 +141,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 - `panel.zsh` opens and closes it on herdr startup, `workspace.created`, `tab.created` and the toggle action. herdr opens plugin panes at half width, so it then resizes the split to `CHEATSHEET_WIDTH` columns (or `CHEATSHEET_RATIO`).
 - When a panel starts, it compares the installed commit (`herdr plugin list --json`) with the repository's latest one using a single `git ls-remote` to github.com. If they differ, it also downloads the new `herdr-plugin.toml` to show the version number. Panels that start together share one result, which is stored with any error in the plugin's state directory (`~/.local/state/herdr/plugins/christiandeckert.cheatsheet/update`). Local or linked installs aren't checked.
 - herdr restores plugin panes after a server restart as plain shells. The startup hook closes such a pane and opens a fresh panel in its place, instead of opening a second one.
+- The pane frame shows the name `cheatsheet` only while the logo is hidden, since the logo already names the panel. Panels are recognized by their title, by that name, or by their working directory: herdr runs plugin panes in the plugin's install directory and restores them there.
 - Before 0.5.0 the panel was started by typing a command into a shell pane, which added a `CHEATSHEET_PLUGIN_ID=… zsh …/sheet.zsh` line to your shell history every time. Panels from those versions replace themselves with a plugin pane after updating. To remove the old history lines (zsh, macOS `sed`): `sed -i '' '/CHEATSHEET_PLUGIN_ID=/d' ~/.zsh_history`.
 - `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
 - The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Every action herdr can run from outside its UI is clickable, using its CLI or socket API. That includes closing a pane, tab or workspace, which happens immediately, like the key. The dimmed rows are herdr UI only: help, workspace picker, goto, sidebar, resize mode, settings, jump to notification, open worktree and detach. Key ranges like go to tab `1..9`, focus pane h/j/k/l and last pane are dimmed too.

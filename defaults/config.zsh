@@ -7,7 +7,7 @@
 # Or a fixed share kept by the main pane instead (0.80 = 20% wide panel):
 # CHEATSHEET_RATIO=0.80
 
-# Logo banner at the top: on, off.
+# Logo banner at the top: on, off. The panel's "b" toggle overrides this for all panels.
 # CHEATSHEET_BANNER=on
 
 # Agent overview: all, attention (only blocked/done agents), off. At most this many rows:
