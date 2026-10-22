@@ -15,6 +15,8 @@ zmodload zsh/net/socket
 typeset -A KEYS ALIAS
 typeset -a OUT ACT PLAIN
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
+# keys of clickable rows: the pastel pink of the logo's top line
+K=$'\e[38;5;213m'
 # Sheet mode: SGR mouse reporting on and auto-wrap off. Without wrap, a line wider than the pane is cut
 # at the edge instead of taking a second screen row, which would shift every row below (and its click).
 MOUSE_ON=$'\e[?1000h\e[?1006h\e[?7l' MOUSE_OFF=$'\e[?1000l\e[?1006l\e[?7h'
@@ -191,7 +193,7 @@ render_just() {
     (( ${#sig} )) || continue
     doc=${doc:-${sig[2,-1]}}
     [[ -n "${ALIAS[$sig[1]]}" ]] && doc="[${ALIAS[$sig[1]]}] $doc"
-    row "$sig[1]" "$doc" "$C" "run:just $sig[1]"
+    row "$sig[1]" "$doc" "$K" "run:just $sig[1]"
   done
 }
 
@@ -255,7 +257,7 @@ render_herdr() {
     fi
     [[ -n "${KEYS[$name]}" ]] || continue
     flush_group "$Y"
-    row "$(fmt_key "${KEYS[$name]}")" "$desc" "$Y" "$act"
+    row "$(fmt_key "${KEYS[$name]}")" "$desc" "$K" "$act"
   done
   PENDING_GROUP="your keys"
   # custom [[keys.command]] bindings: key, description, type, command
@@ -276,7 +278,7 @@ render_herdr() {
         *) act="" ;;
       esac
       flush_group "$Y"
-      row "$(fmt_key "$k")" "${d:-custom command}" "$Y" "$act"
+      row "$(fmt_key "$k")" "${d:-custom command}" "$K" "$act"
     done
 }
 
@@ -343,8 +345,8 @@ build() {
 # The panel's own controls, laid out like the other sections; r and q also work as keys.
 render_panel() {
   header "panel"
-  row "r" "refresh" "$C" "panel:refresh"
-  row "q" "close panel" "$C" "panel:close"
+  row "r" "refresh" "$K" "panel:refresh"
+  row "q" "close panel" "$K" "panel:close"
 }
 
 # Sets REPLY to the line cut to the pane width; color codes are copied, only visible characters count.
