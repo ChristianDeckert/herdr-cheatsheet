@@ -17,6 +17,8 @@ typeset -a OUT ACT PLAIN
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
 # keys of clickable rows: the pastel pink of the logo's top line
 K=$'\e[38;5;213m'
+# group labels: the lavender of the logo's middle line
+G=$'\e[38;5;141m'
 # Sheet mode: SGR mouse reporting on and auto-wrap off. Without wrap, a line wider than the pane is cut
 # at the edge instead of taking a second screen row, which would shift every row below (and its click).
 MOUSE_ON=$'\e[?1000h\e[?1006h\e[?7l' MOUSE_OFF=$'\e[?1000l\e[?1006l\e[?7h'
@@ -251,12 +253,12 @@ render_herdr() {
     if [[ $name == "## "* ]]; then PENDING_GROUP=${name#"## "}; continue; fi
     if [[ $name == focus_pane_hjkl ]]; then
       [[ -n "${KEYS[focus_pane_left]}" ]] || continue
-      flush_group "$Y"
+      flush_group "$G"
       row "$(fmt_key "${KEYS[focus_pane_left]}")…${KEYS[focus_pane_right]##*+}" "$desc" "$Y"
       continue
     fi
     [[ -n "${KEYS[$name]}" ]] || continue
-    flush_group "$Y"
+    flush_group "$G"
     row "$(fmt_key "${KEYS[$name]}")" "$desc" "$K" "$act"
   done
   PENDING_GROUP="your keys"
@@ -277,7 +279,7 @@ render_herdr() {
         shell) act="bg:$c" ;;
         *) act="" ;;
       esac
-      flush_group "$Y"
+      flush_group "$G"
       row "$(fmt_key "$k")" "${d:-custom command}" "$K" "$act"
     done
 }
@@ -322,7 +324,7 @@ render_terminal() {
   (( KW > 18 )) && KW=18
   for i in {1..${#keys}}; do
     if [[ $keys[$i] == "##" ]]; then PENDING_GROUP=$descs[$i]; continue; fi
-    flush_group "$M"
+    flush_group "$G"
     row "$keys[$i]" "$descs[$i]" "$M"
   done
   [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
