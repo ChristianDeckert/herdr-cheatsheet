@@ -1,5 +1,9 @@
 # herdr-cheatsheet
 
+<p align="center">
+  <img src="docs/screenshot.png" alt="The cheat-sheet panel: CHEATSHEET banner, herdr keybindings, detected iTerm2 shortcuts and the agent overview" width="420">
+</p>
+
 A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
 
 - **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
