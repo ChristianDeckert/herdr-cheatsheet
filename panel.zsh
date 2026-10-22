@@ -1,8 +1,9 @@
 #!/bin/zsh
 # Manages the cheat-sheet pane:
-#   ensure  keep one running in tab 1 of each workspace and restart panes restored after a server restart
-#   tab     open one in a newly created tab (CHEATSHEET_AUTO_OPEN=all)
-#   toggle  open/close it in the current tab
+#   ensure   keep one running in tab 1 of each workspace and replace panes restored after a server restart
+#   tab      open one in a newly created tab (CHEATSHEET_AUTO_OPEN=all)
+#   toggle   open/close it in the current tab
+#   replace  swap a cheat-sheet pane that isn't a plugin pane (restored shell, pre-0.5 panel) for one
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
 CS_ROOT=$ROOT
@@ -17,16 +18,31 @@ cs_panes() { # panes-json filter
     select(.label == \$l or .terminal_title_stripped == \$l) | .pane_id"
 }
 
-# The sheet runs as a plain pane process, so it gets the plugin context through its command line.
-start() { # pane
-  "$H" pane rename "$1" "$LABEL" >/dev/null
-  "$H" pane run "$1" "CHEATSHEET_PLUGIN_ID=${(q)CS_PLUGIN_ID} CHEATSHEET_CONFIG_DIR=${(q)CS_CONFIG_DIR} CHEATSHEET_STATE_DIR=${(q)CS_STATE_DIR} zsh ${(q)ROOT}/sheet.zsh" >/dev/null
+# The sheet runs as a plugin pane: herdr starts it directly, without the user's shell, and closes the
+# pane when it exits. herdr always splits plugin panes 50/50, so the width is applied afterwards.
+open_right_of() { # pane
+  local new amount dir=right
+  new=$("$H" plugin pane open --plugin "$CS_PLUGIN_ID" --entrypoint sheet --placement split \
+          --target-pane "$1" --direction right --no-focus | jq -r '.result.plugin_pane.pane.pane_id // empty')
+  if [[ -z "$new" ]]; then
+    print -u2 "cheatsheet: could not open a plugin pane next to $1"
+    return 1
+  fi
+  amount=$(( CHEATSHEET_RATIO - 0.5 ))
+  (( amount < 0 )) && { dir=left; amount=$(( -amount )) }
+  "$H" pane resize --pane "$1" --direction $dir --amount $(printf '%.3f' $amount) >/dev/null
 }
 
-open_right_of() { # pane
-  local new
-  new=$("$H" pane split "$1" --direction right --ratio "$CHEATSHEET_RATIO" --no-focus | jq -r '.result.pane.pane_id')
-  [[ -n "$new" && "$new" != null ]] && start "$new"
+# Opens a plugin pane in place of a cheat-sheet pane that runs in a shell, then closes that pane.
+replace() { # pane
+  local all tab target
+  all=$(panes)
+  tab=$(print -r -- "$all" | jq -r --arg p "$1" '.[] | select(.pane_id == $p) | .tab_id')
+  target=$(print -r -- "$all" | jq -r --arg t "$tab" --arg l "$LABEL" \
+    '[.[] | select(.tab_id == $t and .label != $l and .terminal_title_stripped != $l)][0].pane_id // empty')
+  [[ -n "$target" ]] || return
+  # open first: when a migrating sheet calls this for its own pane, closing it ends this script too
+  open_right_of "$target" && "$H" pane close "$1" >/dev/null
 }
 
 ensure_tab() { # tab
@@ -43,12 +59,15 @@ ensure_tab() { # tab
 
 ensure_ws() { # workspace
   local ws=$1 all tab1 p
-  all=$(panes)
-  # restored panes come back as idle shells: restart the sheet in them
-  for p in $(cs_panes "$all" ".workspace_id == \"$ws\""); do
-    print -r -- "$all" | jq -e --arg p "$p" --arg l "$LABEL" \
-      '.[] | select(.pane_id == $p and .terminal_title_stripped == $l)' >/dev/null || start "$p"
-  done
+  # herdr restores plugin panes as plain shells after a server restart. Only on startup: a pane opened a
+  # moment ago by tab.created hasn't set its title yet and would look the same.
+  if [[ "$HERDR_PLUGIN_EVENT" == startup ]]; then
+    all=$(panes)
+    for p in $(cs_panes "$all" ".workspace_id == \"$ws\""); do
+      print -r -- "$all" | jq -e --arg p "$p" --arg l "$LABEL" \
+        '.[] | select(.pane_id == $p and .terminal_title_stripped == $l)' >/dev/null || replace "$p"
+    done
+  fi
   [[ "$CHEATSHEET_AUTO_OPEN" == off ]] && return
   tab1=$("$H" tab list --workspace "$ws" | jq -r '.result.tabs[] | select(.number == 1) | .tab_id')
   [[ -n "$tab1" ]] && ensure_tab "$tab1"
@@ -78,5 +97,6 @@ case "$1" in
       target="${HERDR_PANE_ID:-$(print -r -- "$all" | jq -r --arg t "$tab" '[.[] | select(.tab_id == $t)][0].pane_id // empty')}"
       [[ -n "$target" ]] && open_right_of "$target"
     fi ;;
-  *) print -u2 "usage: panel.zsh ensure|tab|toggle"; exit 2 ;;
+  replace) replace "$2" ;;
+  *) print -u2 "usage: panel.zsh ensure|tab|toggle|replace PANE"; exit 2 ;;
 esac

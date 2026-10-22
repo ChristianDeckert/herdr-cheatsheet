@@ -471,6 +471,13 @@ handle_input() {
 
 stamp() { local f; for f; do zstat +mtime "$f" 2>/dev/null; print -n .; done }
 
+# Panels started by 0.4.x and older run inside the user's shell (a pane labeled "cheatsheet" that isn't
+# a plugin pane); swap this one for a plugin pane. On success that closes this pane and ends the sheet.
+if [[ -z $HERDR_PLUGIN_ENTRYPOINT_ID && -n $CS_PLUGIN_ID && -n $HERDR_PANE_ID ]] &&
+   [[ $("$H" pane list | jq -r --arg p "$HERDR_PANE_ID" '.result.panes[] | select(.pane_id == $p) | .label // ""') == $LABEL ]]; then
+  zsh "$ROOT/panel.zsh" replace "$HERDR_PANE_ID"
+fi
+
 TTY_SAVED=$(stty -g </dev/tty 2>/dev/null)
 quiet_tty
 printf '\e[?25l%s' "$MOUSE_ON"

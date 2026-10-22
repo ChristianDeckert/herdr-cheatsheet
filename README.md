@@ -128,9 +128,11 @@ Every list contains defaults confirmed in the terminal's official documentation 
 
 ## How it works
 
-- `panel.zsh` manages the pane. It opens a right split labeled `cheatsheet`, and runs on herdr startup, `workspace.created`, `tab.created` and the toggle action.
+- The panel is a herdr plugin pane: herdr starts `sheet.zsh` directly, without your shell, and closes the pane when it exits (`q`, Ctrl-C or the toggle key). Nothing is typed into a shell, so your shell history, prompt hooks and `.zshrc` are never involved.
+- `panel.zsh` opens and closes it on herdr startup, `workspace.created`, `tab.created` and the toggle action. herdr opens plugin panes at half width, so it then resizes the split to `CHEATSHEET_RATIO`.
 - When a panel starts, it compares the installed commit (`herdr plugin list --json`) with the repository's latest one using a single `git ls-remote` to github.com. If they differ, it also downloads the new `herdr-plugin.toml` to show the version number. Panels that start together share one result, which is stored with any error in the plugin's state directory (`~/.local/state/herdr/plugins/christiandeckert.cheatsheet/update`). Local or linked installs aren't checked.
-- herdr restores panes after a restart as plain shells. The startup hook finds the labeled pane and restarts the sheet in it instead of opening a second panel.
+- herdr restores plugin panes after a server restart as plain shells. The startup hook closes such a pane and opens a fresh panel in its place, instead of opening a second one.
+- Before 0.5.0 the panel was started by typing a command into a shell pane, which added a `CHEATSHEET_PLUGIN_ID=… zsh …/sheet.zsh` line to your shell history every time. Panels from those versions replace themselves with a plugin pane after updating. To remove the old history lines (zsh, macOS `sed`): `sed -i '' '/CHEATSHEET_PLUGIN_ID=/d' ~/.zsh_history`.
 - `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
 - The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Rows that only exist in herdr's UI are dimmed and do nothing on click: help, workspace picker, goto, sidebar, resize mode, settings, scrollback editor. So are destructive ones: close pane, tab or workspace, and detach.
 
