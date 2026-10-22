@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Cheat-sheet panel: just recipes of the focused pane's project, herdr and terminal keybindings.
+# Cheat-sheet panel: logo, agent overview, just recipes of the focused project, herdr and terminal keybindings.
 # Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, q = close panel.
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
@@ -51,10 +51,87 @@ line() { OUT+=("$1"); PLAIN+=(""); ACT+=("") }
 
 header() { (( ${#OUT} )) && line ""; line "${B}$1${R}" }
 
+# "ANSI Shadow" letters with single-width strokes: █ is the letter face, the box-drawing lines are its
+# drop shadow. Six rows; CHEATSHEET is 52 columns wide.
+typeset -A GLYPH=(
+  C1 ' ███╗' C2 '█╔══╝' C3 '█║   ' C4 '█║   ' C5 '╚███╗' C6 ' ╚══╝'
+  H1 '█╗ █╗' H2 '█║ █║' H3 '████║' H4 '█╔═█║' H5 '█║ █║' H6 '╚╝ ╚╝'
+  E1 '████╗' E2 '█╔══╝' E3 '███╗ ' E4 '█╔═╝ ' E5 '████╗' E6 '╚═══╝'
+  A1 ' ██╗ ' A2 '█╔═█╗' A3 '████║' A4 '█╔═█║' A5 '█║ █║' A6 '╚╝ ╚╝'
+  T1 '█████╗' T2 '╚═█╔═╝' T3 '  █║  ' T4 '  █║  ' T5 '  █║  ' T6 '  ╚╝  '
+  S1 '████╗' S2 '█╔══╝' S3 '████╗' S4 '╚══█║' S5 '████║' S6 '╚═══╝'
+)
+# 256-color retro gradient per row (pink → lavender → aqua); shadow lines use the row color, faint
+BANNER_COLORS=(213 177 141 111 87 87)
+COMPACT_LOGO=('┌─┐┬ ┬┌─┐┌─┐┌┬┐┌─┐┬ ┬┌─┐┌─┐┌┬┐' '│  ├─┤├┤ ├─┤ │ └─┐├─┤├┤ ├┤  │ ' '└─┘┴ ┴└─┘┴ ┴ ┴ └─┘┴ ┴└─┘└─┘ ┴ ')
+
+shadow_line() { # text color -> line with solid faces and faint shadow lines
+  local face=$'\e[0;38;5;'$2'm' shade=$'\e[0;2;38;5;'$2'm' out="" cur="" ch cls
+  for ch in ${(s::)1}; do
+    case $ch in
+      █) cls=$face ;;
+      ' ') cls=$cur ;;
+      *) cls=$shade ;;
+    esac
+    [[ $cls != $cur ]] && { out+=$cls; cur=$cls }
+    out+=$ch
+  done
+  line " $out$R"
+}
+
+render_banner() {
+  [[ $CHEATSHEET_BANNER == off ]] && return
+  local where=${1/#$HOME/~} l ch text
+  if (( COLS >= 54 )); then
+    for l in {1..6}; do
+      text=""
+      for ch in C H E A T S H E E T; do text+=${GLYPH[$ch$l]}; done
+      shadow_line "$text" $BANNER_COLORS[$l]
+    done
+  elif (( COLS >= 33 )); then
+    for l in {1..3}; do line " "$'\e[38;5;'$BANNER_COLORS[$(( 2 * l - 1 ))]'m'"$COMPACT_LOGO[$l]$R"; done
+  else
+    line " ${B}cheatsheet${R}"
+  fi
+  (( ${#where} > COLS - 2 )) && where="…${where[-(COLS - 3),-1]}"
+  line " ${D}$where${R}"
+}
+
+typeset -A AGENT_LABEL=(blocked "● blocked" done "✓ done" working "◐ working" idle "○ idle")
+typeset -A AGENT_COLOR=(blocked $'\e[31m' done $'\e[32m' working $'\e[33m' idle $'\e[2m')
+
+# Agent panes across all workspaces, most urgent first; clicking one jumps there.
+render_agents() {
+  [[ $CHEATSHEET_AGENTS == off ]] && return
+  local agents
+  agents=$(print -r -- "$ALLPANES" | jq -c --arg m "$CHEATSHEET_AGENTS" '
+    [.result.panes[] | select((.agent // "") != "")
+     | select($m != "attention" or .agent_status == "blocked" or .agent_status == "done")
+     | . + {rank: ({blocked: 0, done: 1, working: 2, idle: 3}[.agent_status] // 4)}]
+    | sort_by(.rank, .workspace_id)' 2>/dev/null)
+  local n=$(print -r -- "${agents:-[]}" | jq length)
+  (( n )) || return
+  typeset -A wsl
+  local id lbl p st tab ws title desc max=${CHEATSHEET_AGENTS_MAX:-8} counts
+  "$H" workspace list 2>/dev/null | jq -r '.result.workspaces[] | "\(.workspace_id)\t\(.label)"' |
+    while IFS=$'\t' read -r id lbl; do wsl[$id]=$lbl; done
+  counts=$(print -r -- "$agents" | jq -r 'group_by(.agent_status) | map("\(length) \(.[0].agent_status)") | join(" · ")')
+  header "agents ${D}($counts)${R}"
+  print -r -- "$agents" | jq -r --argjson max "$max" \
+    '.[:$max][] | [.pane_id, .agent_status, .tab_id, .workspace_id, (.terminal_title_stripped // .agent)] | @tsv' |
+    while IFS=$'\t' read -r p st tab ws title; do
+      desc="${wsl[$ws]:-$ws} · $title"
+      [[ $tab == $HERDR_TAB_ID ]] && desc+=" (here)"
+      KW=10 row "${AGENT_LABEL[$st]:-· $st}" "$desc" "${AGENT_COLOR[$st]:-$D}" "agent:$p"
+    done
+  (( n > max )) && line "  ${D}+$(( n - max )) more${R}"
+}
+
 # Sets DIR (project dir to show) and TPANE (main pane in this tab that actions target).
 locate() {
   local all p d
   all=$("$H" pane list 2>/dev/null) || return
+  ALLPANES=$all
   read -r p d < <(print -r -- "$all" | jq -r --arg w "$HERDR_WORKSPACE_ID" --arg s "$HERDR_PANE_ID" \
     '.result.panes[] | select(.focused and .workspace_id == $w and .pane_id != $s and .label != "cheatsheet")
      | "\(.pane_id) \(.foreground_cwd // .cwd)"' | head -1)
@@ -186,9 +263,11 @@ render_terminal() {
 draw() {
   OUT=() ACT=() PLAIN=()
   load_herdr_keys
+  render_banner "$1"
   render_just "$1"
   render_herdr
   render_terminal
+  render_agents
   line ""
   line " ${D}click ▸ to run · r refresh · q close${R}"
   # never print past the pane: screen row N must stay OUT[N] for click mapping
@@ -269,6 +348,7 @@ execute() { # action
     herdr:zoom) focus_main; [[ -n "$TPANE" ]] && "$H" pane zoom "$TPANE" >/dev/null ;;
     herdr:new_workspace) "$H" workspace create --cwd "$DIR" --focus >/dev/null ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
+    agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
   esac
 }
 
@@ -310,7 +390,9 @@ while :; do
   read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
   locate
   jf=$(find_up "$DIR" justfile Justfile .justfile)
-  fp="$DIR|$LINES|$COLS|$(stamp "$CONFIG" "$TERMKEYS" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
+    | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
+  fp="$DIR|$LINES|$COLS|$agents_fp|$(stamp "$CONFIG" "$TERMKEYS" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { draw "$DIR"; FP=$fp }
   handle_input
 done

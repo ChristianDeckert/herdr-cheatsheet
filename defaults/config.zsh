@@ -5,6 +5,13 @@
 # Share kept by the main pane: 0.80 = 20% wide panel.
 # CHEATSHEET_RATIO=0.80
 
+# Logo banner at the top: on, off.
+# CHEATSHEET_BANNER=on
+
+# Agent overview: all, attention (only blocked/done agents), off. At most this many rows:
+# CHEATSHEET_AGENTS=all
+# CHEATSHEET_AGENTS_MAX=8
+
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).
 # CHEATSHEET_AUTO_OPEN=all
 

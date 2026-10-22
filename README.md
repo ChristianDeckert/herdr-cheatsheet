@@ -2,17 +2,28 @@
 
 A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
 
+- **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
 - **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects.
 - **herdr**: the core keybindings resolved from herdr's defaults plus your `config.toml` overrides, and all of your custom `[[keys.command]]` bindings with their descriptions.
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
+- **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first.
 
 Rows marked `▸` run when you click them:
 
 - **Recipes** run inside the panel. Press any key to return, and Ctrl-C stops long-running ones.
 - **herdr actions** like new tab, split, zoom, rename or new workspace run through herdr's CLI.
 - **Your custom bindings** run as configured.
+- **Agents** take you to that agent's pane, in any workspace.
 
 ```
+ ███╗█╗ █╗████╗ ██╗ █████╗████╗█╗ █╗████╗████╗█████╗
+█╔══╝█║ █║█╔══╝█╔═█╗╚═█╔═╝█╔══╝█║ █║█╔══╝█╔══╝╚═█╔═╝
+█║   ████║███╗ ████║  █║  ████╗████║███╗ ███╗   █║
+█║   █╔═█║█╔═╝ █╔═█║  █║  ╚══█║█╔═█║█╔═╝ █╔═╝   █║
+╚███╗█║ █║████╗█║ █║  █║  ████║█║ █║████╗████╗  █║
+ ╚══╝╚╝ ╚╝╚═══╝╚╝ ╚╝  ╚╝  ╚═══╝╚╝ ╚╝╚═══╝╚═══╝  ╚╝
+ ~/code/my-app
+
 just — my-app
  ▸build         [xb] Build the app for the simulator
  ▸run           [xr] Build, install and launch on the simulator
@@ -29,6 +40,12 @@ herdr (prefix ^B)
 iTerm2 (detected)
   ⌘T            new tab
   ⌘D            split vertically (right)
+
+agents (1 blocked · 1 working · 2 idle)
+ ▸● blocked  api · Waiting for approval
+ ▸◐ working  my-app · Refactor login flow
+ ▸○ idle     docs · Update changelog
+ ▸○ idle     my-app · Fix flaky test
 
  click ▸ to run · r refresh · q close
 ```
@@ -69,6 +86,9 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 |---|---|---|
 | `CHEATSHEET_RATIO` | `0.80` | Share kept by the main pane (`0.80` = 20% wide panel) |
 | `CHEATSHEET_AUTO_OPEN` | `all` | `all`: every new tab · `first`: tab 1 of each workspace · `off`: toggle key only |
+| `CHEATSHEET_BANNER` | `on` | `off` hides the logo banner |
+| `CHEATSHEET_AGENTS` | `all` | `all` agents, `attention` (only blocked and done ones) or `off` |
+| `CHEATSHEET_AGENTS_MAX` | `8` | Maximum agent rows, the rest is summarized as `+N more` |
 | `CHEATSHEET_TERMINAL` | `auto` | `auto` detects the terminal, `off` hides the section, or a terminal id from the table below |
 | `CHEATSHEET_OS` | detected | `macos` or `linux`, picks which list variant is shown |
 | `CHEATSHEET_TERMINAL_KEYS` | — | Show your own `keys\|description` file instead of a built-in list |

@@ -8,6 +8,7 @@ HERDR_CONFIG="${HERDR_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.tom
 # defaults; values already in the environment win, config.zsh (sourced below) wins over both
 : ${CHEATSHEET_RATIO:=0.80} ${CHEATSHEET_AUTO_OPEN:=all} ${CHEATSHEET_TERMINAL:=auto}
 : ${CHEATSHEET_TERMINAL_KEYS:=} ${CHEATSHEET_TERMINAL_NAME:=} ${CHEATSHEET_ALIAS_FILE=.project.zsh}
+: ${CHEATSHEET_BANNER:=on} ${CHEATSHEET_AGENTS:=all} ${CHEATSHEET_AGENTS_MAX:=8}
 
 if mkdir -p "$CS_CONFIG_DIR" 2>/dev/null; then
   [[ -f "$CS_CONFIG_DIR/config.zsh" ]] || cp "$CS_ROOT/defaults/config.zsh" "$CS_CONFIG_DIR/config.zsh" 2>/dev/null
