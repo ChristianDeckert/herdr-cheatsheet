@@ -1,0 +1,24 @@
+# name: lazydocker
+# source: https://github.com/jesseduffield/lazydocker/blob/master/docs/keybindings/Keybindings_en.md ; https://github.com/jesseduffield/lazydocker/blob/master/pkg/gui/keybindings.go
+## navigate
+Tab / Shift+Tab|next / previous panel
+[ / ]|previous / next tab
+Enter|focus main panel
+Esc|return
+/|filter list
+PgUp / PgDn|scroll main panel
+## containers
+s|stop
+r|restart
+p|pause
+d|remove
+E|exec shell
+m|view logs
+## services
+u|up service
+S|start service
+U / D|up / down project
+## app
++ / _|cycle screen mode
+x / ?|options menu
+q / Ctrl+C|quit

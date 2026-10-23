@@ -1,0 +1,24 @@
+# name: tig
+# source: https://github.com/jonas/tig/blob/master/tigrc
+## views
+m|main (commit log)
+s|status
+d / l|diff / log
+t / b|tree / blame
+r|refs (branches, tags)
+y|stash
+## stage
+u|stage / unstage file, hunk
+1|stage / unstage line
+!|revert changes
+C|commit (status view)
+## navigate
+j / k|move down / up
+Enter|open selected entry
+<|back
+/ / ?|search forward / back
+n / N|next / previous match
+## app
+q / Q|close view / quit
+R / F5|refresh
+h|help

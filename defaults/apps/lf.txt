@@ -1,0 +1,24 @@
+# name: lf
+# source: https://github.com/gokcehan/lf/blob/master/doc.md
+## navigate
+j / k|down / up
+h / l|parent / open
+gg / G|top / bottom
+Ctrl+U / Ctrl+D|half page up / down
+## files
+Space|toggle selection + down
+v / u|invert / unselect all
+y / d|copy / cut
+p|paste
+r|rename
+c|clear copy/cut buffer
+## view
+zh|toggle hidden files
+/ / ?|search forward / back
+n / N|next / previous match
+sn / ss / st|sort natural / size / time
+## app
+$ / !|shell / shell and wait
+e / i|edit / view in pager
+F1|help
+q|quit

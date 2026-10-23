@@ -1,0 +1,24 @@
+# name: Codex
+# source: https://learn.chatgpt.com/docs/developer-commands?surface=cli ; https://learn.chatgpt.com/docs/cli-customization ; https://github.com/openai/codex/blob/main/codex-rs/tui/src/keymap.rs ; https://github.com/openai/codex/blob/main/codex-rs/tui/src/bottom_pane/shortcut_overlay.rs
+## control
+Esc|interrupt the current turn
+Ctrl+C|interrupt, or quit when idle
+Esc Esc|edit last message and fork
+Shift+Tab|change collaboration mode
+Tab|queue prompt while working
+Enter|send, or steer running turn
+## input
+Shift+Enter|new line
+Ctrl+J|new line (alternative)
+Ctrl+G|open external editor
+## commands
+/|slash commands
+@|search and mention a file
+!|run a shell command
+?|shortcut overlay (empty input)
+## navigation
+Ctrl+R|search prompt history
+Up / Down|recall draft history
+Ctrl+T|open transcript
+Ctrl+O|copy latest output
+Ctrl+L|clear terminal view

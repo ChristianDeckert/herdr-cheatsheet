@@ -1,0 +1,24 @@
+# name: Midnight Commander
+# source: https://github.com/MidnightCommander/mc/blob/master/doc/man/mc.1.in ; https://github.com/MidnightCommander/mc/blob/master/misc/mc.default.keymap
+## function keys
+F1|help
+F2|user menu
+F3 / F4|view / edit
+F5 / F6|copy / move or rename
+F7 / F8|mkdir / delete
+F9 / F10|menu bar / quit
+## navigate
+Tab|switch panel
+Alt+C|quick cd
+Ctrl+\|directory hotlist
+Alt+Y / Alt+U|prev / next dir history
+Ctrl+S|quick search
+## files
+Insert / Ctrl+T|tag file
++ / \|select / unselect group
+Alt+?|find file
+## app
+Ctrl+O|toggle subshell
+Ctrl+U|swap panels
+Ctrl+R|reread directory
+Alt+.|toggle hidden files

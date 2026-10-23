@@ -1,0 +1,24 @@
+# name: nnn
+# source: https://github.com/jarun/nnn/blob/master/src/nnn.h ; https://github.com/jarun/nnn/blob/master/src/nnn.c
+## navigate
+j / k|next / previous
+h / l|parent / open
+g / G|top / bottom
+Ctrl+U / Ctrl+D|page up / down
+~ / -|home / last dir
+## files
+Space / +|toggle selection
+a / A|select all / invert
+p / v|copy / move sel here
+x|delete or trash
+Ctrl+R / r|rename / batch rename
+n|create file / link
+## view
+/|filter
+.|toggle hidden files
+t|sort toggles
+## app
+1-8|switch context
+!|shell
+?|help
+q / Ctrl+Q|quit context / quit

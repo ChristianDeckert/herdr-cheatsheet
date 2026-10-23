@@ -374,22 +374,30 @@ render_terminal() {
   [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
 }
 
-# A key list as a section of display-only rows: keys|description lines, "## label" starts a group, other
-# "#" lines are metadata. App lists use the portable Ctrl+/Alt+/Shift+, shown as ⌃⌥⇧ on macOS.
-render_keyfile() { # file heading [portable]
+# A key list as a section: keys|description lines, "## label" starts a group, other "#" lines are
+# metadata. For an app (third argument) the rows send their keys to the app's pane on click, and the
+# portable Ctrl+/Alt+/Shift+ notation is shown as ⌃⌥⇧ on macOS.
+render_keyfile() { # file heading [app-id]
   header "$2"
-  local -a keys descs
-  local l k PENDING_GROUP=""
+  local -a keys descs acts
+  local l k d PENDING_GROUP=""
   while IFS= read -r l; do
     case $l in
-      "## "*) keys+=("##") descs+=("${l#"## "}") ;;
+      "## "*) keys+=("##") descs+=("${l#"## "}") acts+=("") ;;
       "#"*|"") ;;
       *)
-        k=${l%%|*}
-        [[ -n $3 && $CTRL_SYM == "⌃" ]] && { k=${k//Ctrl+/⌃}; k=${k//Alt+/⌥}; k=${k//Shift+/⇧} }
-        keys+=("$k") descs+=("${${l#*|}:#$l}") ;;
+        k=${l%%|*} d=${${l#*|}:#$l}
+        if [[ -n $3 ]]; then
+          app_entries "$k" "$d" "$3"
+          keys+=("${E_KEYS[@]}") descs+=("${E_DESCS[@]}") acts+=("${E_ACTS[@]}")
+        else
+          keys+=("$k") descs+=("$d") acts+=("")
+        fi ;;
     esac
   done < "$1"
+  if [[ -n $3 && $CTRL_SYM == "⌃" ]]; then
+    keys=("${(@)keys//Ctrl+/⌃}") keys=("${(@)keys//Alt+/⌥}") keys=("${(@)keys//Shift+/⇧}")
+  fi
   # Linux-style keys (Ctrl+Shift+…) are longer than the default column
   local -a widths=(${${keys:#"##"}//?/x})
   local KW=${#${(O@)widths}[1]} i
@@ -398,31 +406,213 @@ render_keyfile() { # file heading [portable]
   for i in {1..${#keys}}; do
     if [[ $keys[$i] == "##" ]]; then PENDING_GROUP=$descs[$i]; continue; fi
     flush_group "$G"
-    row "$keys[$i]" "$descs[$i]" "$M"
+    if [[ -n $acts[$i] ]]; then row "$keys[$i]" "$descs[$i]" "$K" "$acts[$i]"
+    else row "$keys[$i]" "$descs[$i]" "$M"
+    fi
   done
+}
+
+typeset -a E_KEYS E_DESCS E_ACTS
+
+# Rows for one app list entry, in E_KEYS, E_DESCS and E_ACTS. "Ctrl+Z / Ctrl+Y|undo / redo" pairs keys
+# with actions and becomes one row each ("Ctrl+PgUp / PgDn" carries Ctrl over), as does "h j k l"
+# with four descriptions. "Esc Esc" and "Space f" are sent as sequences. "F9 / k|kill process"
+# lists alternatives for one action and sends the first one that can be sent.
+app_entries() { # keys desc app-id
+  setopt local_options extended_glob
+  E_KEYS=() E_DESCS=() E_ACTS=()
+  local -a ks=("${(@s: / :)1}") ds=("${(@s: / :)2}") ws
+  local i mods tok st
+  if (( ${#ks} > 1 && ${#ks} == ${#ds} )); then
+    mods=${(M)ks[1]#((Ctrl|Alt|Shift)+)#}
+    for i in {1..${#ks}}; do
+      tok=$ks[i]
+      (( i > 1 )) && [[ -n $mods && $tok != *+* && ${#tok} -gt 1 && $tok != :* ]] && tok=$mods$tok
+      app_entry "$tok" "$ds[i]" "$3"
+    done
+    return
+  fi
+  if (( ${#ks} == 1 )) && [[ $1 == *' '* ]]; then
+    ws=(${=1})
+    if (( ${#ws} > 1 && ${#ws} == ${#ds} )); then
+      for i in {1..${#ws}}; do app_entry "$ws[i]" "$ds[i]" "$3"; done
+    else
+      # a key sequence like "Esc Esc" or "Space f"; "\ + Enter" describes a chord, not a sequence
+      st=""
+      for tok in $ws; do
+        [[ $tok != "+" ]] && step_of "$tok" || { st=""; break }
+        st+="${st:+|}$REPLY"
+      done
+      [[ -n $st ]] && { send_action "$3" "$st"; st=$REPLY }
+      E_KEYS+=("$1") E_DESCS+=("$2") E_ACTS+=("$st")
+    fi
+    return
+  fi
+  local act=""
+  for tok in $ks; do step_of "$tok" && { send_action "$3" "$REPLY"; act=$REPLY; break }; done
+  E_KEYS+=("$1") E_DESCS+=("$2") E_ACTS+=("$act")
+}
+
+app_entry() { # key desc app-id
+  local act=""
+  step_of "$1" && { send_action "$3" "$REPLY"; act=$REPLY }
+  E_KEYS+=("$1") E_DESCS+=("$2") E_ACTS+=("$act")
+}
+
+# One listed key in a form herdr can send: "k=<key>" for pane send-keys, "t=<text>" for pane send-text.
+# Ex commands like :w also get Enter; a search placeholder (/text) sends only the / that opens the prompt.
+# Ranges (1-5) can't be sent.
+step_of() { # token
+  setopt local_options extended_glob
+  local t=$1 mods=""
+  while [[ $t == (Ctrl|Alt|Shift)+?* ]]; do mods+="${(L)t%%+*}+"; t=${t#*+}; done
+  case $t in
+    Esc|Enter|Tab|Space|Backspace|Delete|Up|Down|Left|Right|F<1-12>) REPLY="k=$mods${(L)t}" ;;
+    # herdr's send-keys has no names for these, so their xterm sequences go as text (modifier code:
+    # 1 + shift 1, alt 2, ctrl 4)
+    Home|End|PgUp|PgDn|Insert)
+      local m=1 c
+      [[ $mods == *shift+* ]] && (( m += 1 ))
+      [[ $mods == *alt+* ]] && (( m += 2 ))
+      [[ $mods == *ctrl+* ]] && (( m += 4 ))
+      case $t in
+        Home) c=H ;; End) c=F ;; PgUp) c=5~ ;; PgDn) c=6~ ;; Insert) c=2~ ;;
+      esac
+      if [[ $c == ?~ ]]; then
+        (( m > 1 )) && c="${c[1]};$m~"
+      else
+        (( m > 1 )) && c="1;$m$c"
+      fi
+      REPLY="t="$'\e'"[$c" ;;
+    *)
+      if [[ -n $mods ]]; then
+        (( ${#t} == 1 )) || return 1
+        REPLY="k=$mods${(L)t}"
+      else
+        [[ -z $t || $t == *[[:space:]]* || $t == [0-9]-[0-9] ]] && return 1
+        if [[ $t == [/?]text ]]; then REPLY="t=${t[1]}"
+        elif [[ $t == :?* ]]; then REPLY="t=$t|k=enter"
+        else REPLY="t=$t"
+        fi
+      fi ;;
+  esac
+}
+
+# The click action of an app row: its keys go to the pane the app runs in. vim and Helix get Esc first,
+# so a click in insert mode doesn't type into the file.
+send_action() { # app-id steps
+  local pane=$APP_PANE[$1] st=$2
+  [[ -n $pane ]] || { REPLY=""; return }
+  [[ $1 == (vim|helix) && $st != k=esc ]] && st="k=esc|$st"
+  REPLY="send:$pane;$st"
+}
+
+# Sends an app row's keys to its pane, then focuses that pane so the effect is visible.
+send_keys_to() { # pane;steps
+  local pane=${1%%;*} s
+  for s in "${(@s:|:)${1#*;}}"; do
+    case $s in
+      k=*) herdr_do pane send-keys "$pane" "${s#k=}" || return ;;
+      t=*) herdr_do pane send-text "$pane" "${s#t=}" || return ;;
+    esac
+  done
+  api pane.focus "{\"pane_id\":\"$pane\"}"
+}
+
+# Ready-made commands (ffmpeg, compression), always shown: a description row with the command dim
+# below it. A click on either types the command at a shell prompt in this tab, without Enter.
+render_tools() {
+  [[ $CHEATSHEET_TOOLS == off ]] && return
+  local f=$(cs_tools_file) l cmd desc PENDING_GROUP=""
+  [[ -n $f ]] || return
+  header "tools"
+  while IFS= read -r l; do
+    case $l in
+      "## "*) PENDING_GROUP=${l#"## "} ;;
+      "#"*|"") ;;
+      *)
+        cmd=${l%%|*} desc=${${l#*|}:#$l}
+        flush_group "$G"
+        OUT+=(" ${B}▸${R} $K${desc:-$cmd}$R") PLAIN+=(" ▸ ${desc:-$cmd}") ACT+=("tool:$cmd")
+        OUT+=("     $D$cmd$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd") ;;
+    esac
+  done < "$f"
+}
+
+# A pane of this tab at a shell prompt, the main pane first. At the prompt, the shell itself is the
+# foreground process group (a running command gets its own group, even one herdr can't inspect, like
+# top), and every foreground process is a shell (the editor tab's vi shares its script's group).
+shell_pane() {
+  local p
+  local -a panes=($(tab_panes))
+  (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
+  for p in $panes; do
+    "$H" pane process-info --pane "$p" 2>/dev/null | jq -e '.result.process_info as $i
+      | $i.foreground_process_group_id == $i.shell_pid
+        and ([$i.foreground_processes[]?.argv0 | ltrimstr("-") | split("/") | last]
+             | all(IN("zsh", "bash", "fish", "sh", "dash", "ksh", "nu")))' >/dev/null 2>&1 &&
+      { REPLY=$p; return 0 }
+  done
+  return 1
+}
+
+copy_text() { # text
+  if (( $+commands[pbcopy] )); then print -rn -- "$1" | pbcopy
+  elif (( $+commands[wl-copy] )); then print -rn -- "$1" | wl-copy
+  elif (( $+commands[xclip] )); then print -rn -- "$1" | xclip -selection clipboard
+  else return 1
+  fi
+}
+
+type_tool() { # command
+  if shell_pane; then
+    local p=$REPLY
+    herdr_do pane send-text "$p" "$1" && api pane.focus "{\"pane_id\":\"$p\"}"
+  elif copy_text "$1"; then
+    notice "no shell prompt in this tab: command copied"
+  else
+    fail "no shell prompt in this tab, and no pbcopy, wl-copy or xclip to copy the command"
+  fi
 }
 
 # Apps whose keys get a section while they run in this tab: process name -> key list.
 typeset -A APP_OF=(
   fresh fresh  vi vim  vim vim  nvim vim  view vim  vimdiff vim  hx helix  helix helix
-  micro micro  nano nano  spf superfile  superfile superfile  lazygit lazygit
+  micro micro  nano nano
+  spf superfile  superfile superfile  yazi yazi  ranger ranger  nnn nnn  lf lf  mc mc
+  lazygit lazygit  tig tig  gitui gitui  lazydocker lazydocker  k9s k9s
+  htop htop  btop btop  top top
+  claude claude  codex codex
 )
+# Scripts run under an interpreter (ranger is Python): for these the script's name is what's matched.
+typeset -a INTERPRETERS=(python python3 node ruby perl sh bash zsh)
 typeset -a APPS
+typeset -A APP_PANE
 
-# Sets APPS to the known apps in the foreground of this tab's panes, the focused pane's first.
+# Sets APPS to the known apps in the foreground of this tab's panes, the focused pane's first, and
+# APP_PANE to the pane each runs in. herdr lists a pane's foreground processes but leaves out those it
+# can't inspect, such as macOS's top, which runs as root; ps adds them by the foreground process group.
 detect_apps() {
-  APPS=()
+  setopt local_options extended_glob
+  APPS=() APP_PANE=()
   [[ $CHEATSHEET_APPS == off ]] && return
-  local p n id
+  local p n id info pg a0 a1 psout=$(ps -axo pgid=,args= 2>/dev/null)
   local -a panes=($(tab_panes))
   (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
   for p in $panes; do
-    for n in $("$H" pane process-info --pane "$p" 2>/dev/null |
-                 jq -r '.result.process_info.foreground_processes[]? | .argv0, .name' 2>/dev/null); do
-      id=$APP_OF[${n:t}]
+    info=$("$H" pane process-info --pane "$p" 2>/dev/null)
+    pg=$(print -r -- "$info" | jq -r '.result.process_info.foreground_process_group_id // empty' 2>/dev/null)
+    { print -r -- "$info" | jq -r '.result.process_info.foreground_processes[]? | [.argv0, (.argv[1] // "")] | @tsv' 2>/dev/null
+      [[ -n $pg ]] && print -r -- "$psout" | awk -v g="$pg" '$1 == g { print $2 "\t" $3 }'
+    } | while IFS=$'\t' read -r a0 a1; do
+      n=${a0:t}
+      # macOS's Python reports itself as "Python"
+      (( ${INTERPRETERS[(Ie)${(L)n%%[0-9.]#}]} )) && n=${a1:t}
+      # npm-installed CLIs show up as codex.js or as a platform build like codex-aarch64-apple-darwin
+      id=${APP_OF[$n]:-${APP_OF[${${n%.js}%%-*}]}}
       # macOS ships UW Pico as /usr/bin/nano; GNU nano's keys don't apply to it
       [[ $id == nano && ${commands[nano]:A:t} == pico ]] && continue
-      [[ -n $id ]] && (( ! ${APPS[(Ie)$id]} )) && APPS+=($id)
+      [[ -n $id ]] && (( ! ${APPS[(Ie)$id]} )) && { APPS+=($id); APP_PANE[$id]=$p }
     done
   done
 }
@@ -432,7 +622,7 @@ render_apps() {
   for id in $APPS; do
     f=$(cs_app_file "$id")
     [[ -n $f ]] || continue
-    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" portable
+    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" "$id"
   done
 }
 
@@ -453,6 +643,7 @@ build() {
   render_apps
   render_just "$1"
   render_herdr
+  render_tools
   render_terminal
   render_agents
   render_panel
@@ -834,6 +1025,13 @@ fail() { # message
   FP=""
 }
 
+# Like fail, for a message that isn't an error.
+notice() { # message
+  printf '\e[%d;1H\e[2K%s %s%s' "$LINES" "$K" "${1[1,COLS-2]}" "$R"
+  sleep 2
+  FP=""
+}
+
 # Runs a herdr CLI command and shows its error if it fails.
 herdr_do() { # args...
   local out
@@ -942,6 +1140,8 @@ execute() { # action
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
     files:search) start_search ;;
+    send:*) send_keys_to "${a#send:}" ;;
+    tool:*) type_tool "${a#tool:}" ;;
     editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )) ;;
     editor:set:*) set_editor "${a#editor:set:}" ;;
     install:*) run_inline "${a#install:}" wait; rehash ;;
@@ -1057,7 +1257,7 @@ while :; do
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done

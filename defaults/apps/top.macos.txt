@@ -1,0 +1,15 @@
+# name: top
+# source: man top (macOS)
+## view
+c|set mode (a/d/e/n)
+o|sort by key
+O|secondary sort key
+U|show one user only
+r|toggle memory object map
+s|set update delay
+## control
+S|send signal to pid
+?|help
+Ctrl+L|redraw screen
+Ctrl+G|cancel prompt
+q|quit

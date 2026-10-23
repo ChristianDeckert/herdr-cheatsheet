@@ -1,10 +1,38 @@
 # herdr-cheatsheet
 
+A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs, follows whatever you're working on, and puts the keys and commands you need one click away.
+
+## tl;dr: at a glance
+
+```sh
+herdr plugin install ChristianDeckert/herdr-cheatsheet
+```
+
+Add two keys to `~/.config/herdr/config.toml`, then run `herdr server reload-config`:
+
+```toml
+[[keys.command]]
+key = "prefix+shift+k"
+type = "plugin_action"
+command = "christiandeckert.cheatsheet.toggle"
+description = "toggle cheat sheet"
+
+[[keys.command]]
+key = "prefix+f"
+type = "plugin_action"
+command = "christiandeckert.cheatsheet.search"
+description = "search files"
+```
+
+- The panel opens on the right of every new tab. `prefix+shift+k` shows or hides it, `prefix+f` searches the project's files.
+- Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
+- Keys inside the panel: `/` search files · `e` open with · `r` refresh · `b` logo · `t` colors · `q` close · `u` update.
+- Settings live in `config.zsh` in `$(herdr plugin config-dir christiandeckert.cheatsheet)`.
+- Needs herdr 0.9.4+, zsh and jq on macOS or Linux; just, fzf and rg are optional.
+
 <p align="center">
   <img src="docs/screenshot.png" alt="The cheat-sheet panel: logo, file search field, just recipes, grouped herdr keys, detected iTerm2 shortcuts, agent overview and panel controls" width="420">
 </p>
-
-A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs, follows whatever you're working on, and puts the keys and commands you need one click away.
 
 ## Features
 
@@ -12,10 +40,11 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 
 - **Logo**: "CHEATSHEET" in the ANSI Shadow style with a retro gradient, and the focused project's path. Narrow panels get a compact logo.
 - **File search**: a search field for the project's files. See [Search and open files](#search-and-open-files).
-- **App keys**: while Fresh, vim (vi, nvim), Helix, micro, GNU nano, superfile or lazygit runs in the tab, a section with its essential keys appears, and disappears when the app quits. See [App keys](#app-keys).
+- **App keys**: while a known app runs in the tab, a section with its essential keys appears, and disappears when the app quits. Clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top) and AI agents (Claude Code, Codex). See [App keys](#app-keys).
 - **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects and only appears when there is a justfile.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
-- **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, VS Code, GNOME Terminal, Konsole, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
+- **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli, always shown. See [Tools](#tools).
+- **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab.
 - **Panel controls**: refresh, hide or show the logo, switch colors, close.
 - **Update status**: `update to x.y.z` under the logo when a new version is out, otherwise `✓ up to date` at the bottom.
@@ -36,6 +65,8 @@ Rows marked `▸` run when you click them:
 - **herdr actions** run through herdr: new tab, split, zoom, next/previous pane, move tab, close pane, tab or workspace, reload config and more. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
+- **Tools** type their command at a shell prompt in the tab, without Enter, so you fill in the placeholders first. See [Tools](#tools).
+- **App keys** send the key to the app's pane and focus it: `:w` saves in vim, `P` pushes in lazygit, `F9` kills in htop. See [App keys](#app-keys).
 - **Update**: click `update to x.y.z` or press `u` to run `herdr plugin update`, which shows what changed and asks first. Every open panel then restarts on the new version.
 
 The mouse wheel scrolls the panel when it's taller than the pane.
@@ -168,6 +199,7 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
 | `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) with the file selected in its folder |
 | `CHEATSHEET_APPS` | `on` | `off` hides the key sections of running apps |
+| `CHEATSHEET_TOOLS` | `on` | `off` hides the tools section |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
 
 Content changes show up within two seconds; press `r` in the panel to detect the terminal again and check for updates. Width and auto-open settings apply to newly opened panels.
@@ -184,6 +216,7 @@ Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the
 | `wezterm` | WezTerm | macOS, Linux |
 | `kitty` | kitty | macOS, Linux |
 | `alacritty` | Alacritty | macOS, Linux |
+| `hyper` | Hyper | macOS, Linux |
 | `vscode` | VS Code integrated terminal | macOS, Linux |
 | `gnome-terminal` | GNOME Terminal, Console, Ptyxis, Tilix (VTE) | Linux |
 | `konsole` | Konsole | Linux |
@@ -194,21 +227,61 @@ Every list contains defaults confirmed in the terminal's official documentation 
 
 ## App keys
 
-The panel asks herdr which processes run in the foreground of its tab's panes (`herdr pane process-info`) and shows a key section for each app it knows:
+The panel asks herdr which processes run in the foreground of its tab's panes (`herdr pane process-info`), adds the ones herdr can't inspect (macOS's `top` runs as root) from `ps` by the pane's foreground process group, and shows a key section for each app it knows. Scripts run by an interpreter (ranger under Python) are matched by the script's name:
 
-| App | Process names | List |
-|---|---|---|
-| Fresh | `fresh` | `fresh.txt` |
-| Vim | `vi`, `vim`, `nvim`, `view`, `vimdiff` | `vim.txt` |
-| Helix | `hx`, `helix` | `helix.txt` |
-| micro | `micro` | `micro.txt` |
-| nano | `nano` | `nano.txt` |
-| superfile | `spf`, `superfile` | `superfile.txt` |
-| lazygit | `lazygit` | `lazygit.txt` |
+| Kind | App | Process names | List |
+|---|---|---|---|
+| editor | Fresh | `fresh` | `fresh.txt` |
+| editor | Vim | `vi`, `vim`, `nvim`, `view`, `vimdiff` | `vim.txt` |
+| editor | Helix | `hx`, `helix` | `helix.txt` |
+| editor | micro | `micro` | `micro.txt` |
+| editor | GNU nano | `nano` | `nano.txt` |
+| file manager | superfile | `spf`, `superfile` | `superfile.txt` |
+| file manager | yazi | `yazi` | `yazi.txt` |
+| file manager | ranger | `ranger` (also run as a Python script) | `ranger.txt` |
+| file manager | nnn | `nnn` | `nnn.txt` |
+| file manager | lf | `lf` | `lf.txt` |
+| file manager | Midnight Commander | `mc` | `mc.txt` |
+| git | lazygit | `lazygit` | `lazygit.txt` |
+| git | tig | `tig` | `tig.txt` |
+| git | gitui | `gitui` | `gitui.txt` |
+| DevOps | lazydocker | `lazydocker` | `lazydocker.txt` |
+| DevOps | k9s | `k9s` | `k9s.txt` |
+| monitor | htop | `htop` | `htop.txt` |
+| monitor | btop | `btop` | `btop.txt` |
+| monitor | top | `top` | `top.macos.txt`, `top.linux.txt` |
+| AI agent | Claude Code | `claude` | `claude.txt` |
+| AI agent | Codex | `codex` (also its npm launcher and platform builds) | `codex.txt` |
+
+Agent sections appear in every tab where an agent runs, so a tab with Claude Code in its main pane always shows Claude Code's keys. Lists with an OS suffix (`top.macos.txt`) are picked for that OS; overrides can use the same suffix.
 
 Each list contains default keys confirmed in the app's documentation or default config and names its sources in a `# source:` line. To adapt one to your own bindings, copy it from the plugin's `defaults/apps/` into an `apps/` folder inside the config directory and edit it there; same format as the terminal lists. Keys are written as `Ctrl+`, `Alt+` and `Shift+` and shown as `⌃ ⌥ ⇧` on macOS.
 
+### Clicking app keys
+
+A click sends the row's key to the pane the app runs in, through `herdr pane send-keys` or `send-text`, and focuses that pane:
+
+- Key combos (`Ctrl+S`, `Shift+Tab`, `F5`, `PgUp`) are sent as keys, typed keys and sequences (`q`, `gg`, `dd`) as text, and ex commands (`:w`, `:q!`) as text plus Enter.
+- Entries that pair keys with actions (`Ctrl+Z / Ctrl+Y | undo / redo`) become one row per action. Entries listing alternative keys for one action (`F9 / k | kill process`) send the first key.
+- Key sequences such as `Esc Esc` or Helix's `Space f` are sent in order; search placeholders (`/text`) send just the `/` that opens the app's search prompt.
+- In vim and Helix every click sends Esc first, so a click never types into your file while insert mode is on.
+- Ranges like `1-5` stay dimmed.
+
 macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section only appears for GNU nano (for example `brew install nano`).
+
+## Tools
+
+The tools section lists ready-made commands, grouped by tool:
+
+| Tool | Commands |
+|---|---|
+| ffmpeg | convert to mp4, extract audio, trim, compress, make a gif, resize to 720p, show info (`ffprobe`) |
+| tar | create `.tar.gz`, `.tar.xz`, `.tar.zst`; extract; list |
+| zip | zip a folder, unzip into a folder, list |
+| gzip, xz, zstd, bzip2, brotli | compress keeping the original, decompress |
+| 7-Zip | create `.7z`, extract into a folder |
+
+Uppercase words (`IN`, `OUT`, `DIR`, `START`, `END`) are placeholders. A click types the command at a shell prompt in the tab, the main pane first, without pressing Enter, and focuses that pane. When no pane in the tab sits at a shell prompt (Claude Code or an editor in every pane), the command goes to the clipboard instead. Every command was run on test files with the installed tools, except 7-Zip's, which follow its documentation, and uses flags that both GNU and BSD tar accept; `.tar.zst` needs GNU tar 1.31 or newer and `zstd` installed. To change the list, copy the plugin's `defaults/tools.txt` into the config directory and edit it: `## tool` lines start a group, then one `command|description` per line.
 
 ## How it works
 
@@ -233,7 +306,7 @@ Then remove the `[[keys.command]]` entries and close any open panels with `q`.
 
 ## Trust
 
-Like every herdr plugin, this runs as ordinary code under your user account. Read `panel.zsh`, `sheet.zsh` and `editor.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory, and an install row runs exactly the `brew install` command it shows.
+Like every herdr plugin, this runs as ordinary code under your user account. Read `panel.zsh`, `sheet.zsh` and `editor.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory, an install row runs exactly the `brew install` command it shows, an app key row sends exactly the key it shows to that app, and a tools row only types its command at your prompt; you press Enter.
 
 ## License
 

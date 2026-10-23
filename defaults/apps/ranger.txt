@@ -1,0 +1,24 @@
+# name: ranger
+# source: https://github.com/ranger/ranger/blob/master/ranger/config/rc.conf
+## navigate
+j / k|down / up
+h / l|parent / open
+gg / G|top / bottom
+H / L|history back / forward
+gh|go home
+## files
+Space|toggle mark
+v / uv|invert / clear all marks
+yy / dd|copy / cut
+pp|paste
+cw / a|rename / append to name
+dD|delete (with prompt)
+## view
+zh / Ctrl+H|toggle hidden files
+/|search
+n / N|next / previous match
+## app
+:|open console
+S|open shell
+?|help
+q / Q|quit / quit all

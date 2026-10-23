@@ -1,0 +1,23 @@
+# name: gitui
+# source: https://github.com/gitui-org/gitui/blob/master/src/keys/key_list.rs ; https://github.com/gitui-org/gitui/blob/master/src/tabs/status.rs
+## views
+1-5|status/log/files/stash tabs
+Tab / Shift+Tab|next / previous tab
+w|switch workdir / staged
+b|branches
+## stage
+Enter|stage / unstage item
+a|stage all
+D|reset item (discard)
+s / d|stage / reset diff lines
+i|add to .gitignore
+## commit
+c|open commit popup
+Ctrl+D|commit (in popup)
+Ctrl+A|amend (in popup)
+p / f|push / pull
+F|fetch
+## app
+Esc|close popup
+h|help
+q / Ctrl+C|quit

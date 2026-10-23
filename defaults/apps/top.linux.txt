@@ -1,0 +1,22 @@
+# name: top
+# source: https://man7.org/linux/man-pages/man1/top.1.html
+## sort
+< / >|move sort column
+R|reverse sort
+P / M / N / T|sort cpu / mem / pid / time
+f|manage fields
+## view
+1|toggle per-cpu states
+c|command line / name
+V|forest view
+H|threads mode
+## process
+k|kill a task
+r|renice a task
+u / U|show one user only
+o / O|filter by field
+## app
+d / s|set delay
+W|write config file
+? / h|help
+q|quit

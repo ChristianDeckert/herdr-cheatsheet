@@ -1,0 +1,47 @@
+# name: Claude Code
+# source: https://code.claude.com/docs/en/interactive-mode ; https://code.claude.com/docs/en/commands ; https://code.claude.com/docs/en/checkpointing ; https://code.claude.com/docs/en/permission-modes
+## control
+Esc|stop response or close dialog
+Esc Esc|clear draft or open rewind
+Ctrl+C|interrupt or clear input
+Ctrl+D|exit (press twice)
+Shift+Tab|cycle modes (edits/plan/auto)
+Ctrl+B|background bash/agent task
+Alt+P|switch model
+Alt+T|toggle extended thinking
+Alt+O|toggle fast mode
+## input
+Shift+Enter|insert newline
+Ctrl+J|newline (any terminal)
+Ctrl+G|open prompt in text editor
+Ctrl+V|paste image from clipboard
+Ctrl+K|delete to end of line
+Ctrl+U|delete to start of line
+Ctrl+Y|paste deleted text
+Ctrl+_|undo last input edit
+## history
+Ctrl+R|reverse search history
+Up|previous prompt in history
+Ctrl+O|toggle transcript viewer
+Ctrl+T|toggle task checklist
+Ctrl+L|redraw the screen
+## quick
+/|command or skill
+!|shell mode: run a command
+@|mention a file path
+?|toggle shortcut help
+## commands
+/clear|new conversation, empty context
+/compact|summarize to free context
+/resume|resume a past session
+/rewind|restore code/chat checkpoint
+/model|switch model
+/plan|enter plan mode
+/init|create CLAUDE.md for project
+/memory|edit CLAUDE.md / auto memory
+/context|show context usage grid
+/usage|cost, plan limits, stats
+/config|open settings
+/permissions|manage permission rules
+/mcp|manage mcp servers
+/review|review diff, pr or branch

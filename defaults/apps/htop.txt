@@ -1,0 +1,24 @@
+# name: htop
+# source: https://github.com/htop-dev/htop/blob/main/htop.1.in
+## navigate
+Up / Down|select process
+PgUp / PgDn|scroll one page
+Home / End|first / last process
+F3 / /|search processes
+F4 / \|filter processes
+## view
+F5 / t|tree view
+F6 / < / >|choose sort column
+P / M / T|sort cpu / mem / time
+I|invert sort order
+H / K|hide user / kernel threads
+## process
+Space|tag process
+F9 / k|kill process
+F7 / F8|raise / lower priority
+u|show one user only
+F|follow process
+## app
+F2 / S|setup
+F1 / h / ?|help
+F10 / q|quit

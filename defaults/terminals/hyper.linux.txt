@@ -1,0 +1,24 @@
+# name: Hyper
+# source: https://github.com/vercel/hyper/blob/canary/app/keymaps/linux.json ; /Applications/Hyper.app (3.4.1) app.asar keymaps/linux.json
+## tabs
+Ctrl+Shift+T|new tab
+Ctrl+Shift+[ / ]|prev / next tab
+Ctrl+Tab|next tab
+Ctrl+1-8 / 9|tab 1-8 / last tab
+## panes
+Ctrl+Shift+D|split right
+Ctrl+Shift+E|split down
+Ctrl+PgUp / PgDn|next / prev pane
+Ctrl+Shift+W|close pane
+## text
+Ctrl+Shift+C|copy
+Ctrl+Shift+V|paste
+Ctrl+Shift+F|search
+Ctrl+Shift+K|clear buffer
+Ctrl+← / →|move word left / right
+## app
+Ctrl+Shift+N|new window
+Ctrl+Shift+Q|close window
+Ctrl+= / - / 0|zoom in / out / reset
+F11|toggle full screen
+Ctrl+,|preferences

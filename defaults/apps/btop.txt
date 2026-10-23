@@ -1,0 +1,24 @@
+# name: btop
+# source: https://github.com/aristocratos/btop/blob/main/src/btop_menu.cpp
+## navigate
+Up / Down|select process
+PgUp / PgDn|jump one page
+Left / Right|previous / next sort column
+f / /|filter processes
+## view
+1 / 2 / 3 / 4|cpu / mem / net / proc box
+p / P|cycle view presets
+e|tree view
+r|reverse sort order
+F|follow process
+## process
+Enter|process details
+t|terminate (SIGTERM)
+k|kill (SIGKILL)
+s|send signal
+N|set nice value
+## app
+Esc / m|main menu
+F2 / o|options
+F1 / ? / h|help
+q / Ctrl+C|quit

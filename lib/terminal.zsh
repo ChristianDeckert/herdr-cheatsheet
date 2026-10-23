@@ -18,6 +18,7 @@ _cs_term_from_name() { # process name (macOS: full path, Linux: comm truncated t
     gnome-terminal*|kgx|ptyxis*|tilix) print gnome-terminal ;;
     konsole) print konsole ;;
     "Code Helper"*|code|Code) print vscode ;;
+    Hyper|"Hyper Helper"*|hyper) print hyper ;;
     *) return 1 ;;
   esac
 }
@@ -54,6 +55,7 @@ _cs_term_from_env() {
     net.kovidgoyal.kitty) print kitty; return ;;
     org.alacritty|io.alacritty) print alacritty; return ;;
     com.microsoft.VSCode*) print vscode; return ;;
+    co.zeit.hyper) print hyper; return ;;
   esac
   if [[ $LC_TERMINAL == iTerm2 || -n $ITERM_SESSION_ID || -n $ITERM_PROFILE ]]; then print iterm
   elif [[ -n $GHOSTTY_RESOURCES_DIR || -n $GHOSTTY_BIN_DIR ]]; then print ghostty
@@ -63,6 +65,7 @@ _cs_term_from_env() {
   elif [[ -n $KONSOLE_VERSION ]]; then print konsole
   elif [[ -n $WT_SESSION ]]; then print windows-terminal
   elif [[ -n $VSCODE_INJECTION || -n $VSCODE_GIT_IPC_HANDLE ]]; then print vscode
+  elif [[ $TERM_PROGRAM == Hyper ]]; then print hyper
   elif [[ -n $VTE_VERSION ]]; then print gnome-terminal
   else return 1
   fi
@@ -74,10 +77,19 @@ cs_detect_terminal() { # -> terminal id, "generic" when unknown, or the configur
   _cs_term_from_ps || _cs_term_from_env || print generic
 }
 
-cs_app_file() { # id -> key list of an app (user override first, then built-in)
-  local d
+cs_tools_file() { # the command list of the tools section (user override first, then built-in)
+  local f
+  for f in "$CS_CONFIG_DIR/tools.txt" "$CS_ROOT/defaults/tools.txt"; do
+    [[ -f "$f" ]] && { print -r -- "$f"; return }
+  done
+}
+
+cs_app_file() { # id -> key list of an app (user override first, then built-in; OS variant first)
+  local d f os=$(cs_os)
   for d in "$CS_CONFIG_DIR/apps" "$CS_ROOT/defaults/apps"; do
-    [[ -f "$d/$1.txt" ]] && { print -r -- "$d/$1.txt"; return }
+    for f in "$1.$os.txt" "$1.txt"; do
+      [[ -f "$d/$f" ]] && { print -r -- "$d/$f"; return }
+    done
   done
 }
 

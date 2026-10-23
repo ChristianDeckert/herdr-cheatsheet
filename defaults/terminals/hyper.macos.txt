@@ -1,0 +1,24 @@
+# name: Hyper
+# source: https://github.com/vercel/hyper/blob/canary/app/keymaps/darwin.json ; /Applications/Hyper.app (3.4.1) app.asar keymaps/darwin.json
+## tabs
+⌘T|new tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌃⇧⇥ ⌃⇥|prev / next tab
+⌘1-8 ⌘9|tab 1-8 / last tab
+## panes
+⌘D|split right
+⌘⇧D|split down
+⌘[ ⌘]|prev / next pane
+⌘W|close pane
+## text
+⌘F|search
+⌘K|clear buffer
+⌥← ⌥→|move word left / right
+⌘← ⌘→|line start / end
+## app
+⌘N|new window
+⌘⇧W|close window
+⌘= ⌘- ⌘0|zoom in / out / reset
+⌃⌘F|toggle full screen
+⌘,|preferences
+⌘⌥I|dev tools

@@ -1,0 +1,24 @@
+# name: k9s
+# source: https://github.com/derailed/k9s#key-bindings ; https://k9scli.io/topics/commands/
+## navigate
+:|resource command (:pod)
+/|filter view
+Esc|back / exit mode
+-|last command
+[ / ]|history back / forward
+Ctrl+A|list resource aliases
+## resource
+d|describe
+y|view yaml
+e|edit
+l|logs
+s|shell into container
+Ctrl+D|delete (confirm)
+## sort
+N|sort by name
+A|sort by age
+S|sort by status
+## app
+?|help
+Ctrl+R|refresh view
+:q / Ctrl+C|quit
