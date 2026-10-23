@@ -10,7 +10,7 @@ HERDR_CONFIG="${HERDR_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.tom
 : ${CHEATSHEET_RATIO:=} ${CHEATSHEET_WIDTH:=54} ${CHEATSHEET_AUTO_OPEN:=all} ${CHEATSHEET_TERMINAL:=auto}
 : ${CHEATSHEET_TERMINAL_KEYS:=} ${CHEATSHEET_TERMINAL_NAME:=} ${CHEATSHEET_ALIAS_FILE=.project.zsh}
 : ${CHEATSHEET_BANNER:=on} ${CHEATSHEET_AGENTS:=all} ${CHEATSHEET_AGENTS_MAX:=8} ${CHEATSHEET_UPDATE_CHECK:=on}
-: ${CHEATSHEET_COLORS:=retro} ${CHEATSHEET_APPEARANCE:=auto}
+: ${CHEATSHEET_COLORS:=retro} ${CHEATSHEET_APPEARANCE:=auto} ${CHEATSHEET_EDITOR:=}
 
 mkdir -p "$CS_STATE_DIR" 2>/dev/null
 if mkdir -p "$CS_CONFIG_DIR" 2>/dev/null; then
@@ -39,5 +39,22 @@ fi
 CS_SHEET_JQ='def sheet: .label == "cheatsheet" or .terminal_title_stripped == "cheatsheet"
   or ($home != "" and ((.cwd // "") | startswith($home)));'
 cs_jq() { jq --arg home "$CS_PANE_HOME" "$@" }
+
+# herdr's socket API, for actions its CLI doesn't have. Sets REPLY to the response line (empty when
+# herdr can't be reached) and returns non-zero unless the call succeeded.
+cs_api() { # method params-json
+  zmodload zsh/net/socket
+  local fd line
+  if ! zsocket "${HERDR_SOCKET_PATH:-${XDG_CONFIG_HOME:-$HOME/.config}/herdr/herdr.sock}" 2>/dev/null; then
+    REPLY=""
+    return 1
+  fi
+  fd=$REPLY
+  print -r -- "{\"id\":\"cheatsheet\",\"method\":\"$1\",\"params\":$2}" >&$fd
+  read -r -t 5 line <&$fd
+  exec {fd}>&-
+  REPLY=$line
+  [[ -n $line ]] && ! print -r -- "$line" | jq -e '.error' >/dev/null
+}
 
 source "$CS_ROOT/lib/terminal.zsh"

@@ -3,6 +3,7 @@
 #   ensure   keep one running in tab 1 of each workspace and replace panes restored after a server restart
 #   tab      open one in a newly created tab (CHEATSHEET_AUTO_OPEN=all)
 #   toggle   open/close it in the current tab
+#   search   start the file search in the current tab's panel (opening one if needed) and focus it
 #   replace  swap a cheat-sheet pane that isn't a plugin pane (restored shell, pre-0.5 panel) for one
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
@@ -27,6 +28,7 @@ open_right_of() { # pane
     print -u2 "cheatsheet: could not open a plugin pane next to $1"
     return 1
   fi
+  NEW_PANE=$new
   size_panel "$1" "$new"
 }
 
@@ -126,6 +128,22 @@ case "$1" in
       target="${HERDR_PANE_ID:-$(print -r -- "$all" | jq -r --arg t "$tab" '[.[] | select(.tab_id == $t)][0].pane_id // empty')}"
       [[ -n "$target" ]] && open_right_of "$target"
     fi ;;
+  search)
+    tab="${HERDR_TAB_ID:-$("$H" pane list | jq -r '.result.panes[] | select(.focused) | .tab_id')}"
+    all=$(panes)
+    p=$(cs_panes "$all" ".tab_id == \"$tab\"" | head -1)
+    if [[ -z "$p" ]]; then
+      target="${HERDR_PANE_ID:-$(print -r -- "$all" | jq -r --arg t "$tab" '[.[] | select(.tab_id == $t)][0].pane_id // empty')}"
+      [[ -n "$target" ]] && open_right_of "$target" || exit 1
+      p=$NEW_PANE
+    fi
+    # a panel that just opened reads keys once the sheet runs, which is when it sets its title
+    for _ in {1..30}; do
+      [[ $("$H" pane get "$p" | jq -r '.result.pane.terminal_title_stripped // empty') == "$LABEL" ]] && break
+      sleep 0.1
+    done
+    "$H" pane send-text "$p" $'\x06' >/dev/null
+    cs_api pane.focus "{\"pane_id\":\"$p\"}" || { print -u2 "cheatsheet: could not focus $p: $REPLY"; exit 1 } ;;
   replace) replace "$2" ;;
-  *) print -u2 "usage: panel.zsh ensure|tab|toggle|replace PANE"; exit 2 ;;
+  *) print -u2 "usage: panel.zsh ensure|tab|toggle|search|replace PANE"; exit 2 ;;
 esac

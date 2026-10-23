@@ -7,6 +7,7 @@
 A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
 
 - **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
+- **Files**: press the search key (`prefix+f` with the binding below), `/` in the panel, or click the row, and search the project's files as you type. Click a result or press Enter to open it, in a new focused tab with its own cheat sheet that closes when you quit the editor. **open with** (key `e`) lists the editors found on your machine, GUI apps and superfile included, plus the system's fallbacks; your pick is shared by all panels. Without a terminal editor beyond vi, vim and nano, the panel suggests installing Fresh and superfile (one click with Homebrew).
 - **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects.
 - **herdr**: the keybindings resolved from herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, followed by your custom `[[keys.command]]` bindings under "your keys".
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
@@ -29,24 +30,30 @@ Rows marked `▸` run when you click them:
  ╚══╝╚╝ ╚╝╚═══╝╚╝ ╚╝  ╚╝  ╚═══╝╚╝ ╚╝╚═══╝╚═══╝  ╚╝
  ~/code/my-app
 
+files
+ ╭───────────────────────────────────────────────────╮
+ │ search files…                                ⌃B f │
+ ╰───────────────────────────────────────────────────╯
+ ▸ e             open with: fresh
+
 just — my-app
  ▸ build         [xb] Build the app for the simulator
  ▸ run           [xr] Build, install and launch on the simulator
  ▸ test          [xt] Run tests; one spec: `just test SomeSpec`
 
-herdr (prefix ^B)
+herdr (prefix ⌃B)
  tabs ─────────────────────────────────────────────
- ▸ ^B c          new tab
- ▸ ^B ⇧t         rename tab
- ▸ ^B ⇧x         close tab
+ ▸ ⌃B c          new tab
+ ▸ ⌃B ⇧t         rename tab
+ ▸ ⌃B ⇧x         close tab
  panes ────────────────────────────────────────────
- ▸ ^B v          split right
- ▸ ^B z          zoom pane
+ ▸ ⌃B v          split right
+ ▸ ⌃B z          zoom pane
  herdr ────────────────────────────────────────────
-   ^B ?          help (all keys)
+   ⌃B ?          help (all keys)
  your keys ────────────────────────────────────────
- ▸ ^B ⌥r         just run (build + launch in simulator)
- ▸ ^B ⇧k         toggle cheat sheet
+ ▸ ⌃B ⌥r         just run (build + launch in simulator)
+ ▸ ⌃B ⇧k         toggle cheat sheet
 
 iTerm2 (detected)
  tabs ─────────────────────────────────────────────
@@ -87,7 +94,15 @@ key = "prefix+shift+k"
 type = "plugin_action"
 command = "christiandeckert.cheatsheet.toggle"
 description = "toggle cheat sheet"
+
+[[keys.command]]
+key = "prefix+f"
+type = "plugin_action"
+command = "christiandeckert.cheatsheet.search"
+description = "search files"
 ```
+
+The second binding starts the file search from anywhere in the tab and puts the focus in the panel.
 
 The panel appears in new workspaces and tabs right away. To add it to the tab you're in, press the toggle key. To add it to tab 1 of every existing workspace, restart the server:
 
@@ -114,6 +129,7 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_OS` | detected | `macos` or `linux`, picks which list variant is shown |
 | `CHEATSHEET_TERMINAL_KEYS` | — | Show your own `keys\|description` file instead of a built-in list |
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
+| `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) at the file's folder |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
 
 Content changes show up within two seconds; press `r` in the panel to detect the terminal again and check for updates. Width and auto-open settings apply to newly opened panels.
@@ -147,6 +163,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 - Colors follow the terminal's theme. At start and on `r` the panel asks for the background color and the light/dark color scheme, which herdr answers for the terminal you're attached from. It also turns on color-scheme reports, so it switches between its dark and light palette as soon as the terminal does. Without an answer it assumes a dark background.
 - The pane frame shows the name `cheatsheet` only while the logo is hidden, since the logo already names the panel. Panels are recognized by their title, by that name, or by their working directory: herdr runs plugin panes in the plugin's install directory and restores them there.
 - Before 0.5.0 the panel was started by typing a command into a shell pane, which added a `CHEATSHEET_PLUGIN_ID=… zsh …/sheet.zsh` line to your shell history every time. Panels from those versions replace themselves with a plugin pane after updating. To remove the old history lines (zsh, macOS `sed`): `sed -i '' '/CHEATSHEET_PLUGIN_ID=/d' ~/.zsh_history`.
+- The file search starts at the focused project's git root (or its directory). It lists files with `rg --files`, `fd`, `git ls-files` or `find`, whichever is available first; the first three skip what `.gitignore` lists, `find` skips `.git`, `node_modules`, `DerivedData`, `build` and `Pods`. Results are ranked with `fzf --filter` when fzf is installed, else the typed characters must appear in order. Terminal editors run in a plugin pane in a new tab, without your shell. When the editor exits, the tab closes with its cheat sheet, unless you've added other panes to it. Esc leaves the search and returns the focus to your pane.
 - `sheet.zsh` draws the panel and redraws only when the focused project, the justfile or alias file, your herdr config, the terminal list, an agent's status or the pane size changes. It enables mouse reporting so herdr forwards clicks and the scroll wheel to it, and keeps terminal echo off so mouse input never shows up as text. When the content is taller than the pane, the wheel scrolls it.
 - The herdr section lists herdr's default keys plus any optional action you've bound in `config.toml` (next/previous workspace or agent, last pane, move tab, clear pane, worktrees). Every action herdr can run from outside its UI is clickable, using its CLI or socket API. That includes closing a pane, tab or workspace, which happens immediately, like the key. The dimmed rows are herdr UI only: help, workspace picker, goto, sidebar, resize mode, settings, jump to notification, open worktree and detach. Key ranges like go to tab `1..9`, focus pane h/j/k/l and last pane are dimmed too.
 

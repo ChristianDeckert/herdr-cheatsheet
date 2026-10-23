@@ -23,6 +23,11 @@
 # Light or dark background: auto (ask the terminal), dark, light.
 # CHEATSHEET_APPEARANCE=auto
 
+# Editor for files opened from the search (/): a terminal editor opens in a new tab, a GUI editor
+# (code, zed, subl, xed, ...) in its own window. The panel's "open with" choice overrides this.
+# Without either: $VISUAL, $EDITOR, the first installed terminal editor, vi.
+# CHEATSHEET_EDITOR=vim
+
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).
 # CHEATSHEET_AUTO_OPEN=all
 

@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Cheat-sheet panel: logo, agent overview, just recipes of the focused project, herdr and terminal keybindings.
-# Rows marked ▸ run on click. Redraws only when something changes. Keys: r = refresh, b = logo on/off,
-# t = retro/terminal colors, q = close panel, u = update (when one is available).
+# Rows marked ▸ run on click. Redraws only when something changes. Keys: / = search files,
+# r = refresh, b = logo on/off, t = retro/terminal colors, q = close panel, u = update (when available).
 H="${HERDR_BIN_PATH:-herdr}"
 ROOT="${0:A:h}"
 CS_ROOT=$ROOT
@@ -10,7 +10,6 @@ source "$ROOT/lib/update.zsh"
 CONFIG=$HERDR_CONFIG
 LABEL="cheatsheet"
 zmodload -F zsh/stat b:zstat
-zmodload zsh/net/socket
 
 typeset -A KEYS ALIAS
 typeset -a OUT ACT PLAIN
@@ -63,10 +62,13 @@ query_theme() {
   fi
 }
 
-fmt_key() { # "prefix+alt+r" -> "^B ⌥r"
+# Control is ⌃ on macOS, like its menus show it; elsewhere the usual ^.
+[[ $(cs_os) == macos ]] && CTRL_SYM="⌃" || CTRL_SYM="^"
+
+fmt_key() { # "prefix+alt+r" -> "⌃B ⌥r"
   local k=$1
   k=${k//prefix+/$PREFIX }; k=${k//alt+/⌥}; k=${k//shift+/⇧}; k=${k//cmd+/⌘}; k=${k//super+/⌘}
-  while [[ $k =~ 'ctrl\+(.)' ]]; do k=${k/ctrl+$match[1]/^${(U)match[1]}}; done
+  while [[ $k =~ 'ctrl\+(.)' ]]; do k=${k/ctrl+$match[1]/$CTRL_SYM${(U)match[1]}}; done
   print -r -- $k
 }
 
@@ -398,15 +400,277 @@ build() {
   OUT=() ACT=() PLAIN=()
   apply_palette
   sync_label
+  if (( SEARCH )); then
+    render_banner "$1"
+    render_search
+    return
+  fi
   load_herdr_keys
   render_banner "$1"
   render_update
+  render_search
   render_just "$1"
   render_herdr
   render_terminal
   render_agents
   render_panel
   render_update_status
+}
+
+# File search. While SEARCH is on, the panel shows only the logo and the search, and keys go to QUERY.
+# FILES (paths relative to SROOT) is listed once per search; RESULTS is FILES ranked for QUERY.
+SEARCH=0 QUERY="" SEL=1 SROOT=""
+typeset -a FILES RESULTS
+
+start_search() {
+  SROOT=$(git -C "$DIR" rev-parse --show-toplevel 2>/dev/null) || SROOT=$DIR
+  SEARCH=1 QUERY="" SEL=1 SCROLL=0 FP=""
+  search_files
+}
+
+stop_search() { SEARCH=0 QUERY="" SCROLL=0 FP="" }
+
+# The key a [[keys.command]] block in herdr's config binds to the given command, if any.
+bound_key() { # command
+  awk -v want="$1" 'function flush(){ if(k!="" && c==want) print k; k=c="" }
+       function val(s){ sub(/^[a-z_]+ *= */,"",s); gsub(/^["\x27]|["\x27] *$/,"",s); return s }
+       /^\[\[keys\.command\]\]/{ flush(); b=1; next }
+       /^\[/{ flush(); b=0 }
+       b && /^key *=/{ k=val($0) } b && /^command *=/{ c=val($0) }
+       END{ flush() }' "$CONFIG" 2>/dev/null | head -1
+}
+
+# rg and fd skip what .gitignore lists; find skips the usual build and dependency folders.
+search_files() {
+  local out
+  if (( $+commands[rg] )); then out=$(cd "$SROOT" && rg --files 2>/dev/null)
+  elif (( $+commands[fd] )); then out=$(cd "$SROOT" && fd --type f 2>/dev/null)
+  elif git -C "$SROOT" rev-parse >/dev/null 2>&1; then
+    out=$(git -C "$SROOT" ls-files --cached --others --exclude-standard 2>/dev/null)
+  else
+    out=$(cd "$SROOT" && find . -type d \( -name .git -o -name node_modules -o -name DerivedData \
+      -o -name .build -o -name build -o -name Pods \) -prune -o -type f -print 2>/dev/null | sed 's#^\./##')
+  fi
+  FILES=(${(o)${(f)out}})
+}
+
+# fzf ranks fuzzy matches best first. Without it, the query's characters must appear in order, ignoring
+# case (logv finds LoginView), and files keep their order. An empty query suggests nothing.
+rank() {
+  setopt local_options extended_glob
+  local pat="*" c
+  if [[ -z $QUERY ]]; then RESULTS=()
+  elif (( $+commands[fzf] )); then RESULTS=(${(f)"$(print -rl -- $FILES | fzf --filter "$QUERY" 2>/dev/null | head -200)"})
+  else
+    for c in ${(s::)QUERY}; do pat+="${(b)c}*"; done
+    RESULTS=(${${(M)FILES:#(#i)${~pat}}[1,200]})
+  fi
+}
+
+# A framed field in the accent color, so the search stands out from the rows around it: the entry
+# point (clickable anywhere) and, while searching, the query line.
+search_box() { # left right [action]  (plain text; right is shown in the accent color)
+  local w=$(( COLS - 2 )) left=$1 right=$2
+  (( w < 16 )) && w=16
+  local inner=$(( w - 4 ))
+  (( ${#left} + ${#right} + 1 > inner )) && left="${left[1,inner - ${#right} - 2]}…"
+  box_row "$K╭${(l:w - 2::─:)}╮$R" "$3"
+  box_row "$K│$R $left${(l:inner - ${#left} - ${#right}:: :)}$K$right$R $K│$R" "$3"
+  box_row "$K╰${(l:w - 2::─:)}╯$R" "$3"
+}
+
+box_row() { # line action
+  setopt local_options extended_glob
+  OUT+=(" $1") PLAIN+=(" ${(S)1//$'\e'\[[0-9;]#m/}") ACT+=("$2")
+}
+
+render_search() {
+  if (( ! SEARCH )); then
+    local bound=$(bound_key "$CS_PLUGIN_ID.search") key="/"
+    [[ -n $bound ]] && key=$(fmt_key "$bound")
+    header "files"
+    search_box "search files…" "$key" "files:search"
+    render_editor
+    return
+  fi
+  rank
+  (( SEL > ${#RESULTS} )) && SEL=${#RESULTS}
+  (( SEL < 1 )) && SEL=1
+  # suggestions start with the first typed character; until then the count shows what's searchable
+  local count="${#RESULTS}/${#FILES}"
+  [[ -z $QUERY ]] && count="${#FILES} files"
+  header "files ${D}— ${SROOT/#$HOME/~}${R}"
+  search_box "$QUERY█" "$count"
+  local room=$(( LINES - 1 - ${#OUT} )) i p max=$(( COLS - 5 ))
+  (( room < 3 )) && room=3
+  local n=$(( ${#RESULTS} < room ? ${#RESULTS} : room ))
+  (( n )) || return
+  for i in {1..$n}; do
+    p=$RESULTS[$i]
+    (( ${#p} > max )) && p="…${p[-(max - 1),-1]}"
+    if (( i == SEL )); then OUT+=(" ${K}"$'\e[7m'"▸ $p "$'\e[27m'"$R")
+    else OUT+=(" ${B}▸${R} $p")
+    fi
+    PLAIN+=(" ▸ $p") ACT+=("open:$RESULTS[$i]")
+  done
+}
+
+# Tools the file search opens with: name, command, kind. "terminal" runs in the editor tab, "window" is
+# a GUI app with its own window, "folder" opens the file's folder in the editor tab (a file manager).
+typeset -a EDITOR_TABLE=(
+  fresh fresh terminal  nvim nvim terminal  helix hx terminal  micro micro terminal
+  emacs "emacs -nw" terminal  kakoune kak terminal  vim vim terminal  nano nano terminal
+  code code window  cursor cursor window  zed zed window  sublime subl window  xcode xed window
+  windsurf windsurf window  superfile spf folder
+)
+# The panel's "open with" choice, shared by all panels; it wins over CHEATSHEET_EDITOR.
+EDITOR_STATE="$CS_STATE_DIR/editor"
+EDITOR_MENU=0
+
+cmd_exists() { # command line
+  local -a w=(${(z)1})
+  if [[ $w[1] == */* ]]; then [[ -x $w[1] ]]
+  else (( $+commands[$w[1]] ))
+  fi
+}
+
+kind_of() { # command line -> terminal | window | folder
+  local -a w=(${(z)1}) t
+  local i
+  for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
+    t=(${(z)EDITOR_TABLE[i+1]})
+    [[ $t[1] == ${w[1]:t} ]] && { print -r -- $EDITOR_TABLE[i+2]; return }
+  done
+  [[ ${w[1]:t} == (open|codium) ]] && print window || print terminal
+}
+
+editor_label() { # command line -> its name in the table, else the command
+  local i
+  for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
+    [[ $EDITOR_TABLE[i+1] == $1 ]] && { print -r -- $EDITOR_TABLE[i]; return }
+  done
+  [[ $1 == open ]] && print "default app" || print -r -- $1
+}
+
+# Sets C_NAME, C_CMD and C_NOTE to what can be picked: configured commands outside the table, the
+# installed tools of the table, then the system's own fallbacks (vi; on macOS also the default app).
+editor_candidates() {
+  C_NAME=() C_CMD=() C_NOTE=()
+  local src v i
+  for src in CHEATSHEET_EDITOR VISUAL EDITOR; do
+    v=${(P)src}
+    [[ -n $v ]] && cmd_exists "$v" || continue
+    (( ${EDITOR_TABLE[(Ie)$v]} || ${C_CMD[(Ie)$v]} )) && continue
+    C_NAME+=("$v") C_CMD+=("$v") C_NOTE+=("\$$src")
+  done
+  for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
+    cmd_exists "$EDITOR_TABLE[i+1]" || continue
+    C_NAME+=("$EDITOR_TABLE[i]") C_CMD+=("$EDITOR_TABLE[i+1]")
+    C_NOTE+=("${${EDITOR_TABLE[i+2]}:#terminal}")
+  done
+  cmd_exists vi && { C_NAME+=(vi) C_CMD+=(vi) C_NOTE+=(system) }
+  [[ $(cs_os) == macos ]] && { C_NAME+=("default app") C_CMD+=(open) C_NOTE+=("system window") }
+}
+typeset -a C_NAME C_CMD C_NOTE
+
+# The panel's choice, then CHEATSHEET_EDITOR, $VISUAL and $EDITOR, then the first installed terminal
+# tool of the table, then vi. A chosen tool that is gone is reported in EDITOR_MISSING, not replaced.
+pick_editor() {
+  local e i
+  EDITOR_MISSING=""
+  if [[ -f $EDITOR_STATE ]]; then
+    e=$(<$EDITOR_STATE)
+    cmd_exists "$e" && { REPLY=$e; return 0 }
+    EDITOR_MISSING=$e
+  fi
+  for e in "$CHEATSHEET_EDITOR" "$VISUAL" "$EDITOR"; do
+    [[ -n $e ]] && cmd_exists "$e" && { REPLY=$e; return 0 }
+  done
+  for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
+    [[ $EDITOR_TABLE[i+2] == terminal ]] && cmd_exists "$EDITOR_TABLE[i+1]" && { REPLY=$EDITOR_TABLE[i+1]; return 0 }
+  done
+  cmd_exists vi && { REPLY=vi; return 0 }
+  return 1
+}
+
+# Nothing chosen or configured, and no terminal editor beyond what ships with the system (vi, vim, nano).
+# GUI apps don't count: they are never picked automatically, and macOS ships a stub xed without Xcode.
+no_real_editor() {
+  [[ -f $EDITOR_STATE || -n $CHEATSHEET_EDITOR || -n $VISUAL || -n $EDITOR ]] && return 1
+  local i
+  for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
+    [[ $EDITOR_TABLE[i+2] != terminal || $EDITOR_TABLE[i] == (vim|nano) ]] && continue
+    cmd_exists "$EDITOR_TABLE[i+1]" && return 1
+  done
+  return 0
+}
+
+set_editor() { # command line
+  print -r -- "$1" > "$EDITOR_STATE.tmp" && mv "$EDITOR_STATE.tmp" "$EDITOR_STATE"
+  EDITOR_MENU=0
+}
+
+# "open with" row, the list of tools while it's open, and install hints when no real editor is set up.
+render_editor() {
+  local cur label i
+  pick_editor; cur=$REPLY
+  label=$(editor_label "$cur")
+  [[ -n $EDITOR_MISSING ]] && label="$(editor_label "$EDITOR_MISSING") (missing)"
+  row "e" "open with: $label" "$K" "editor:menu"
+  if (( EDITOR_MENU )); then
+    editor_candidates
+    for i in {1..${#C_CMD}}; do
+      if [[ $C_CMD[i] == $cur && -z $EDITOR_MISSING ]]; then
+        OUT+=(" ${K}✓${R} ${K}${(r:13:)C_NAME[i]}${R} ${D}$C_NOTE[i]${R}") PLAIN+=("") ACT+=("")
+      else
+        row "$C_NAME[i]" "${D}$C_NOTE[i]${R}" "$K" "editor:set:$C_CMD[i]"
+      fi
+    done
+  fi
+  no_real_editor || return
+  install_row Fresh fresh "brew install fresh-editor" \
+    'curl -fsSL https://raw.githubusercontent.com/sinelaw/fresh/refs/heads/master/scripts/install.sh | sh'
+  install_row superfile spf "brew install superfile" 'bash -c "$(curl -sLo- https://superfile.dev/install.sh)"'
+}
+
+# With Homebrew the row runs the install in the panel; otherwise it shows the project's own command.
+install_row() { # name command brew-command other-command
+  cmd_exists "$2" && return
+  if (( $+commands[brew] )); then row "install" "$1  ${D}$3${R}" "$K" "install:$3"
+  else line "   ${D}install $1: $4${R}"
+  fi
+}
+
+# GUI editors open their own window. A terminal editor (or superfile, at the file's folder) runs in a new
+# tab, the plugin's "editor" pane, which closes when it exits.
+open_file() { # path relative to SROOT
+  local abs="$SROOT/$1" ed out tab target
+  if ! pick_editor; then fail "no editor found: pick one under open with, or set CHEATSHEET_EDITOR"; return 1; fi
+  ed=$REPLY
+  [[ -n $EDITOR_MISSING ]] && fail "$(editor_label "$EDITOR_MISSING") isn't installed, opening with $(editor_label "$ed")"
+  case $(kind_of "$ed") in
+    window)
+      ( cd "$SROOT" && ${=ed} "$abs" >/dev/null 2>&1 & )
+      return ;;
+    folder) target=${abs:h} ;;
+    *) target=$abs ;;
+  esac
+  out=$("$H" plugin pane open --plugin "$CS_PLUGIN_ID" --entrypoint editor --placement tab \
+          --workspace "$HERDR_WORKSPACE_ID" --cwd "$SROOT" --env "CHEATSHEET_EDITOR_CMD=$ed" \
+          --env "CHEATSHEET_FILE=$target" --focus 2>&1)
+  tab=$(print -r -- "$out" | jq -r '.result.plugin_pane.pane.tab_id // empty' 2>/dev/null)
+  if [[ -z $tab ]]; then
+    fail "can't open $1: $(print -r -- "$out" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "$out")"
+    return 1
+  fi
+  herdr_do tab rename "$tab" "${1:t}"
+  herdr_do tab focus "$tab"
+}
+
+open_selected() {
+  rank
+  [[ -n $RESULTS[$SEL] ]] || return
+  open_file "$RESULTS[$SEL]" && stop_search
 }
 
 # The panel's own controls, laid out like the other sections; r and q also work as keys.
@@ -537,19 +801,11 @@ herdr_do() { # args...
 
 # Calls herdr's socket API, for actions its CLI doesn't have. Shows the error if the call fails.
 api() { # method params-json
-  local fd line
-  if ! zsocket "$HERDR_SOCKET_PATH" 2>/dev/null; then
-    fail "$1: can't reach herdr's socket"
-    return 1
+  cs_api "$1" "$2" && return
+  if [[ -z $REPLY ]]; then fail "$1: no response from herdr"
+  else fail "$1: $(print -r -- "$REPLY" | jq -r '.error.message // empty' 2>/dev/null)"
   fi
-  fd=$REPLY
-  print -r -- "{\"id\":\"cheatsheet\",\"method\":\"$1\",\"params\":$2}" >&$fd
-  read -r -t 5 line <&$fd
-  exec {fd}>&-
-  if [[ -z $line ]] || print -r -- "$line" | jq -e '.error' >/dev/null; then
-    fail "$1: $(print -r -- "$line" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "no response")"
-    return 1
-  fi
+  return 1
 }
 
 # Non-sheet panes of this tab, in herdr's order.
@@ -642,6 +898,11 @@ execute() { # action
     herdr:new_worktree) new_worktree ;;
     herdr:rename:*) rename_prompt "${a##*:}" ;;
     agent:*) "$H" agent focus "${a#agent:}" >/dev/null 2>&1 ;;
+    files:search) start_search ;;
+    editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )) ;;
+    editor:set:*) set_editor "${a#editor:set:}" ;;
+    install:*) run_inline "${a#install:}" wait; rehash ;;
+    open:*) open_file "${a#open:}" && stop_search ;;
     panel:refresh) pick_terminal; query_theme; update_check force ;;
     panel:banner) toggle_banner ;;
     panel:colors) toggle_colors ;;
@@ -670,7 +931,10 @@ handle_input() {
   while :; do
     if [[ $k == $'\e' ]]; then
       seq=""
-      while read -r -s -k1 -t 0.05 c </dev/tty; do seq+=$c; [[ $c == [Mmn~] || ${#seq} -gt 20 ]] && break; done
+      while read -r -s -k1 -t 0.05 c </dev/tty; do
+        seq+=$c
+        [[ $c == [Mmn~] || $seq == [[O][A-D] || ${#seq} -gt 20 ]] && break
+      done
       # SGR mouse report: [<button;column;row then M (press) or m (release)
       if [[ $seq =~ '^\[<([0-9]+);([0-9]+);([0-9]+)([Mm])$' ]]; then
         b=$(( match[1] & ~28 ))   # without the shift/alt/ctrl bits
@@ -683,9 +947,26 @@ handle_input() {
         fi
       elif [[ $seq =~ '^\[\?997;([12])n$' ]]; then
         [[ $match[1] == 2 ]] && APPEARANCE=light || APPEARANCE=dark
+      elif (( SEARCH )); then
+        # a lone Esc leaves the search; arrow keys move the selection
+        case $seq in
+          '') stop_search; focus_main ;;
+          [[O]A) (( SEL > 1 )) && (( SEL-- )) ;;
+          [[O]B) (( SEL++ )) ;;
+        esac
       fi
+    elif (( SEARCH )); then
+      case $k in
+        $'\x7f'|$'\b') QUERY=${QUERY[1,-2]} SEL=1 ;;
+        $'\x15'|$'\x06') QUERY="" SEL=1 ;;
+        $'\n'|$'\r') open_selected ;;
+        [[:print:]]) QUERY+=$k SEL=1 ;;
+      esac
     else
       case $k in
+        # Ctrl-F comes from the search action (herdr key), / from typing in the panel
+        /|$'\x06') start_search ;;
+        e) (( EDITOR_MENU = ! EDITOR_MENU )); FP="" ;;
         q) "$H" pane close "$HERDR_PANE_ID" >/dev/null 2>&1; exit ;;
         r) FP=""; pick_terminal; query_theme; update_check force ;;
         b) toggle_banner ;;
@@ -722,11 +1003,17 @@ pick_terminal
 while :; do
   read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
   follow_update
+  if (( SEARCH )); then
+    fp="search|$LINES|$COLS|$APPEARANCE|$QUERY|$SEL|$(stamp "$BANNER_FILE" "$COLORS_FILE")"
+    [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
+    handle_input
+    continue
+  fi
   locate
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done
