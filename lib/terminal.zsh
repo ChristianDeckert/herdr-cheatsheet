@@ -74,6 +74,13 @@ cs_detect_terminal() { # -> terminal id, "generic" when unknown, or the configur
   _cs_term_from_ps || _cs_term_from_env || print generic
 }
 
+cs_app_file() { # id -> key list of an app (user override first, then built-in)
+  local d
+  for d in "$CS_CONFIG_DIR/apps" "$CS_ROOT/defaults/apps"; do
+    [[ -f "$d/$1.txt" ]] && { print -r -- "$d/$1.txt"; return }
+  done
+}
+
 cs_terminal_file() { # id -> shortcut list (user override first, then built-in, then generic)
   local id=$1 os=$(cs_os) d f
   for d in "$CS_CONFIG_DIR/terminals" "$CS_ROOT/defaults/terminals"; do

@@ -1,0 +1,25 @@
+# name: lazygit
+# source: https://github.com/jesseduffield/lazygit/blob/master/docs/keybindings/Keybindings_en.md ; https://github.com/jesseduffield/lazygit/blob/master/docs/Config.md
+## panels
+1-5|jump to panel
+Tab / Shift+Tab|next / previous panel
+[ / ]|previous / next tab
+?|keybindings menu
+q / Ctrl+C|quit
+## files
+Space|stage / unstage file
+a|stage / unstage all
+Enter|focus diff (stage hunks)
+e / o|edit file / open file
+s|stash all changes
+## commits
+c|commit staged changes
+A|amend last commit
+z / Z|undo / redo
+## branches
+Space|checkout branch
+n|new branch
+c|checkout by name
+## sync
+P / p|push / pull
+f|fetch

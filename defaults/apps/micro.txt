@@ -1,0 +1,24 @@
+# name: micro
+# source: https://github.com/zyedidia/micro/blob/v2.0.15/runtime/help/defaultkeys.md ; https://github.com/zyedidia/micro/blob/v2.0.15/internal/action/defaults_darwin.go
+## file
+Ctrl+S|save
+Ctrl+O|open file
+Ctrl+Q|close file / quit
+Ctrl+T|new tab
+Alt+, / Alt+.|previous / next tab
+## edit
+Ctrl+Z / Ctrl+Y|undo / redo
+Ctrl+C / Ctrl+V|copy / paste
+Ctrl+X|cut selection or line
+Ctrl+K|cut line
+Ctrl+D|duplicate line
+Alt+Up / Alt+Down|move line up / down
+## search
+Ctrl+F|find
+Ctrl+N / Ctrl+P|next / previous match
+Ctrl+L|go to line
+## misc
+Ctrl+E|command prompt
+Ctrl+G|toggle help
+Ctrl+R|toggle line numbers
+Alt+N|add cursor at next match

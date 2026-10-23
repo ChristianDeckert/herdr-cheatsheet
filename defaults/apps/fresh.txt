@@ -1,0 +1,24 @@
+# name: fresh
+# source: https://github.com/sinelaw/fresh/blob/v0.5.4/crates/fresh-editor-core/keymaps/default.json ; https://github.com/sinelaw/fresh/blob/v0.5.4/crates/fresh-editor-core/keymaps/macos.json ; https://github.com/sinelaw/fresh/blob/v0.5.4/docs/features/editing.md
+## file
+Ctrl+S|save
+Ctrl+O|open file
+Alt+W|close tab
+Ctrl+Q|quit
+## edit
+Ctrl+Z / Ctrl+Y|undo / redo
+Ctrl+X|cut
+Ctrl+C / Ctrl+V|copy / paste
+Ctrl+/|toggle comment
+Alt+Up / Alt+Down|move line up / down
+Ctrl+D|add cursor at next match
+## search
+Ctrl+F|find in buffer
+F3 / Shift+F3|next / previous match
+Alt+/|live grep in project
+## navigation
+Ctrl+P|quick open / commands
+Ctrl+PgUp / PgDn|previous / next buffer
+Ctrl+Home / End|start / end of file
+Ctrl+B|toggle file explorer
+Shift+F1|keyboard shortcuts

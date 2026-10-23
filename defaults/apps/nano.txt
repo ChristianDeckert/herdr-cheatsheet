@@ -1,0 +1,23 @@
+# name: nano
+# source: https://www.nano-editor.org/dist/latest/cheatsheet.html
+## file
+Ctrl+S|save
+Ctrl+O|save as (write out)
+Ctrl+X|close buffer / exit
+Ctrl+G|help
+## edit
+Ctrl+K|cut line
+Alt+6|copy line
+Ctrl+U|paste
+Alt+U / Alt+E|undo / redo
+Alt+3|comment / uncomment
+Alt+A|set / unset mark
+## search
+Ctrl+F / Ctrl+B|search forward / backward
+Alt+F / Alt+B|next / previous match
+Alt+R|search and replace
+## navigation
+Alt+G|go to line
+Ctrl+A / Ctrl+E|line start / end
+Ctrl+Y / Ctrl+V|page up / down
+Alt+\ / Alt+/|start / end of buffer

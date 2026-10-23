@@ -28,6 +28,10 @@
 # Without either: $VISUAL, $EDITOR, the first installed terminal editor, vi.
 # CHEATSHEET_EDITOR=vim
 
+# Key sections for apps running in the tab (Fresh, vim, Helix, micro, nano, superfile, lazygit): on, off.
+# To change a list, copy it from the plugin's defaults/apps/ into an apps/ folder next to this file.
+# CHEATSHEET_APPS=on
+
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).
 # CHEATSHEET_AUTO_OPEN=all
 

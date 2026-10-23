@@ -1,0 +1,24 @@
+# name: superfile
+# source: https://superfile.dev/list/hotkey-list/ ; https://github.com/yorukot/superfile/blob/main/src/superfile_config/hotkeys.toml
+## navigate
+j / k|move down / up
+Enter / l|open selected item
+h / Backspace|go to parent folder
+/|toggle search bar
+## files
+Ctrl+N|new file (end / for folder)
+Ctrl+R|rename
+Ctrl+C / Ctrl+X|copy / cut
+Ctrl+V|paste
+Ctrl+D / Delete|delete selected items
+D|permanently delete
+## view
+f|toggle preview panel
+.|toggle dot files
+L / H|next / prev file panel
+n / w|new / close file panel
+## app
+e / E|open file / dir in editor
+?|help (hotkey list)
+q / Esc|quit
+Q|quit and cd to folder

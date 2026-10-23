@@ -1,0 +1,24 @@
+# name: vim
+# source: https://vimhelp.org/quickref.txt.html ; https://vimhelp.org/index.txt.html
+## modes
+i / a|insert before / after cursor
+o / O|open line below / above
+Esc|back to normal mode
+v / V|visual select char / line
+## file
+:w|save
+:q / :q!|quit / quit without saving
+:wq / :x|save and quit
+## edit
+u / Ctrl+R|undo / redo
+dd / yy|delete / copy line
+p / P|paste after / before
+x|delete char under cursor
+.|repeat last change
+## move
+h j k l|left / down / up / right
+w / b / e|word fwd / back / end
+0 / $|line start / end
+gg / G|first / last line
+/text / ?text|search forward / backward
+n / N|next / previous match

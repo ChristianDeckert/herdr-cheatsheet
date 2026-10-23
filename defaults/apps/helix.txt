@@ -1,0 +1,24 @@
+# name: helix
+# source: https://docs.helix-editor.com/keymap.html ; https://docs.helix-editor.com/commands.html
+## modes
+i / a|insert before / after
+o / O|open line below / above
+Esc|back to normal mode
+v|select (extend) mode
+## file
+:w|save
+:q / :q!|quit / quit without saving
+:wq / :x|save and quit
+Space f|file picker
+## edit
+u / U|undo / redo
+x / %|select line / whole file
+y / p / P|yank / paste after / before
+d / c|delete / change selection
+; / ,|collapse / keep primary sel
+## move
+h j k l|left / down / up / right
+w / b / e|word fwd / back / end
+gg / ge|file start / end
+/text / ?text|search forward / backward
+n / N|next / previous match

@@ -242,11 +242,10 @@ find_up() { # dir name... -> first match walking up
   done
 }
 
+# Only shown for a project with a justfile; it appears and disappears as the focus moves between projects.
 render_just() {
   local jf=$(find_up "$1" justfile Justfile .justfile) a c
-  if [[ -z "$jf" ]]; then
-    header "just"; line " ${D}no justfile in ${1/#$HOME/~}${R}"; return
-  fi
+  [[ -n "$jf" ]] || return
   header "just — ${jf:h:t}"
   (( $+commands[just] )) || { line " ${D}install just to list recipes${R}"; return }
   ALIAS=()
@@ -371,17 +370,26 @@ pick_terminal() {
 
 render_terminal() {
   [[ -s "$TERMKEYS" ]] || return
-  header "$TERMHEAD"
-  # keys|description lines; "## label" starts a group (stored as key "##"), other "#" lines are metadata
+  render_keyfile "$TERMKEYS" "$TERMHEAD"
+  [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
+}
+
+# A key list as a section of display-only rows: keys|description lines, "## label" starts a group, other
+# "#" lines are metadata. App lists use the portable Ctrl+/Alt+/Shift+, shown as ⌃⌥⇧ on macOS.
+render_keyfile() { # file heading [portable]
+  header "$2"
   local -a keys descs
-  local l PENDING_GROUP=""
+  local l k PENDING_GROUP=""
   while IFS= read -r l; do
     case $l in
       "## "*) keys+=("##") descs+=("${l#"## "}") ;;
       "#"*|"") ;;
-      *) keys+=("${l%%|*}") descs+=("${${l#*|}:#$l}") ;;
+      *)
+        k=${l%%|*}
+        [[ -n $3 && $CTRL_SYM == "⌃" ]] && { k=${k//Ctrl+/⌃}; k=${k//Alt+/⌥}; k=${k//Shift+/⇧} }
+        keys+=("$k") descs+=("${${l#*|}:#$l}") ;;
     esac
-  done < "$TERMKEYS"
+  done < "$1"
   # Linux-style keys (Ctrl+Shift+…) are longer than the default column
   local -a widths=(${${keys:#"##"}//?/x})
   local KW=${#${(O@)widths}[1]} i
@@ -392,7 +400,40 @@ render_terminal() {
     flush_group "$G"
     row "$keys[$i]" "$descs[$i]" "$M"
   done
-  [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
+}
+
+# Apps whose keys get a section while they run in this tab: process name -> key list.
+typeset -A APP_OF=(
+  fresh fresh  vi vim  vim vim  nvim vim  view vim  vimdiff vim  hx helix  helix helix
+  micro micro  nano nano  spf superfile  superfile superfile  lazygit lazygit
+)
+typeset -a APPS
+
+# Sets APPS to the known apps in the foreground of this tab's panes, the focused pane's first.
+detect_apps() {
+  APPS=()
+  [[ $CHEATSHEET_APPS == off ]] && return
+  local p n id
+  local -a panes=($(tab_panes))
+  (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
+  for p in $panes; do
+    for n in $("$H" pane process-info --pane "$p" 2>/dev/null |
+                 jq -r '.result.process_info.foreground_processes[]? | .argv0, .name' 2>/dev/null); do
+      id=$APP_OF[${n:t}]
+      # macOS ships UW Pico as /usr/bin/nano; GNU nano's keys don't apply to it
+      [[ $id == nano && ${commands[nano]:A:t} == pico ]] && continue
+      [[ -n $id ]] && (( ! ${APPS[(Ie)$id]} )) && APPS+=($id)
+    done
+  done
+}
+
+render_apps() {
+  local id f
+  for id in $APPS; do
+    f=$(cs_app_file "$id")
+    [[ -n $f ]] || continue
+    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" portable
+  done
 }
 
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
@@ -409,6 +450,7 @@ build() {
   render_banner "$1"
   render_update
   render_search
+  render_apps
   render_just "$1"
   render_herdr
   render_terminal
@@ -516,12 +558,13 @@ render_search() {
 }
 
 # Tools the file search opens with: name, command, kind. "terminal" runs in the editor tab, "window" is
-# a GUI app with its own window, "folder" opens the file's folder in the editor tab (a file manager).
+# a GUI app with its own window, "manager" is a file manager that opens with the file selected in its
+# folder, in the editor tab.
 typeset -a EDITOR_TABLE=(
   fresh fresh terminal  nvim nvim terminal  helix hx terminal  micro micro terminal
   emacs "emacs -nw" terminal  kakoune kak terminal  vim vim terminal  nano nano terminal
   code code window  cursor cursor window  zed zed window  sublime subl window  xcode xed window
-  windsurf windsurf window  superfile spf folder
+  windsurf windsurf window  superfile spf manager
 )
 # The panel's "open with" choice, shared by all panels; it wins over CHEATSHEET_EDITOR.
 EDITOR_STATE="$CS_STATE_DIR/editor"
@@ -534,7 +577,7 @@ cmd_exists() { # command line
   fi
 }
 
-kind_of() { # command line -> terminal | window | folder
+kind_of() { # command line -> terminal | window | manager
   local -a w=(${(z)1}) t
   local i
   for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
@@ -566,7 +609,7 @@ editor_candidates() {
   for (( i = 1; i <= ${#EDITOR_TABLE}; i += 3 )); do
     cmd_exists "$EDITOR_TABLE[i+1]" || continue
     C_NAME+=("$EDITOR_TABLE[i]") C_CMD+=("$EDITOR_TABLE[i+1]")
-    C_NOTE+=("${${EDITOR_TABLE[i+2]}:#terminal}")
+    C_NOTE+=("${${${EDITOR_TABLE[i+2]}:#terminal}/manager/file manager}")
   done
   cmd_exists vi && { C_NAME+=(vi) C_CMD+=(vi) C_NOTE+=(system) }
   [[ $(cs_os) == macos ]] && { C_NAME+=("default app") C_CMD+=(open) C_NOTE+=("system window") }
@@ -641,7 +684,8 @@ install_row() { # name command brew-command other-command
   fi
 }
 
-# GUI editors open their own window. A terminal editor (or superfile, at the file's folder) runs in a new
+# GUI editors open their own window. A terminal editor or superfile (given a file, it opens the folder with
+# the file selected) runs in a new
 # tab, the plugin's "editor" pane, which closes when it exits.
 open_file() { # path relative to SROOT
   local abs="$SROOT/$1" ed out tab target
@@ -652,7 +696,6 @@ open_file() { # path relative to SROOT
     window)
       ( cd "$SROOT" && ${=ed} "$abs" >/dev/null 2>&1 & )
       return ;;
-    folder) target=${abs:h} ;;
     *) target=$abs ;;
   esac
   out=$("$H" plugin pane open --plugin "$CS_PLUGIN_ID" --entrypoint editor --placement tab \
@@ -1010,10 +1053,11 @@ while :; do
     continue
   fi
   locate
+  detect_apps
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done

@@ -7,8 +7,9 @@
 A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
 
 - **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
-- **Files**: press the search key (`prefix+f` with the binding below), `/` in the panel, or click the row, and search the project's files as you type. Click a result or press Enter to open it, in a new focused tab with its own cheat sheet that closes when you quit the editor. **open with** (key `e`) lists the editors found on your machine, GUI apps and superfile included, plus the system's fallbacks; your pick is shared by all panels. Without a terminal editor beyond vi, vim and nano, the panel suggests installing Fresh and superfile (one click with Homebrew).
-- **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects.
+- **Files**: press the search key (`prefix+f` with the binding below), `/` in the panel, or click the row, and search the project's files as you type. Click a result or press Enter to open it, in a new focused tab with its own cheat sheet that closes when you quit the editor. **open with** (key `e`) lists the editors found on your machine, GUI apps and superfile (opens with the file selected) included, plus the system's fallbacks; your pick is shared by all panels. Without a terminal editor beyond vi, vim and nano, the panel suggests installing Fresh and superfile (one click with Homebrew).
+- **Apps**: while Fresh, vim (vi, nvim), Helix, micro, nano, superfile or lazygit runs in one of the tab's panes, a section with its essential keys appears above the recipes, and disappears when the app quits.
+- **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects and only appears when the project has a justfile.
 - **herdr**: the keybindings resolved from herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, followed by your custom `[[keys.command]]` bindings under "your keys".
 - **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
@@ -129,7 +130,8 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_OS` | detected | `macos` or `linux`, picks which list variant is shown |
 | `CHEATSHEET_TERMINAL_KEYS` | — | Show your own `keys\|description` file instead of a built-in list |
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
-| `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) at the file's folder |
+| `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) with the file selected in its folder |
+| `CHEATSHEET_APPS` | `on` | `off` hides the key sections of running apps |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
 
 Content changes show up within two seconds; press `r` in the panel to detect the terminal again and check for updates. Width and auto-open settings apply to newly opened panels.
@@ -153,6 +155,24 @@ Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the
 | `generic` | anything else | macOS, Linux |
 
 Every list contains defaults confirmed in the terminal's official documentation or default configuration; each file names its sources in a `# source:` line. If you've remapped keys, override a list: copy it from the plugin's `defaults/terminals/` into a `terminals/` folder inside the config directory, keep the file name (for example `terminals/ghostty.macos.txt`) and edit it. Format: a `# name: Heading` line, then one `keys|description` per line. A `## label` line starts a group.
+
+## App keys
+
+The panel asks herdr which processes run in the foreground of its tab's panes (`herdr pane process-info`) and shows a key section for each app it knows:
+
+| App | Process names | List |
+|---|---|---|
+| Fresh | `fresh` | `fresh.txt` |
+| Vim | `vi`, `vim`, `nvim`, `view`, `vimdiff` | `vim.txt` |
+| Helix | `hx`, `helix` | `helix.txt` |
+| micro | `micro` | `micro.txt` |
+| nano | `nano` | `nano.txt` |
+| superfile | `spf`, `superfile` | `superfile.txt` |
+| lazygit | `lazygit` | `lazygit.txt` |
+
+Each list contains default keys confirmed in the app's documentation or default config and names its sources in a `# source:` line. To adapt one to your own bindings, copy it from the plugin's `defaults/apps/` into an `apps/` folder inside the config directory and edit it there; same format as the terminal lists. Keys are written as `Ctrl+`, `Alt+` and `Shift+` and shown as `⌃ ⌥ ⇧` on macOS.
+
+macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section only appears for GNU nano (for example `brew install nano`).
 
 ## How it works
 
