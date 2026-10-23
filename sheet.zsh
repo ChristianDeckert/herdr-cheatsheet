@@ -520,8 +520,10 @@ send_keys_to() { # pane;steps
 }
 
 # Ready-made commands (ffmpeg, compression), always shown: a description row with the command dim
-# below it. A click on either types the command at a shell prompt in this tab, without Enter.
+# below it, its {placeholders} in the accent color. A click on either types the command at a shell
+# prompt in this tab, without Enter.
 render_tools() {
+  setopt local_options extended_glob
   [[ $CHEATSHEET_TOOLS == off ]] && return
   local f=$(cs_tools_file) l cmd desc PENDING_GROUP=""
   [[ -n $f ]] || return
@@ -534,7 +536,7 @@ render_tools() {
         cmd=${l%%|*} desc=${${l#*|}:#$l}
         flush_group "$G"
         OUT+=(" ${B}▸${R} $K${desc:-$cmd}$R") PLAIN+=(" ▸ ${desc:-$cmd}") ACT+=("tool:$cmd")
-        OUT+=("     $D$cmd$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd") ;;
+        OUT+=("     $D${cmd//(#m)\{[a-z_]##\}/$R$K$MATCH$R$D}$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd") ;;
     esac
   done < "$f"
 }
@@ -564,10 +566,17 @@ copy_text() { # text
   fi
 }
 
+# Types a tool's command at a shell prompt and leaves the cursor on its first {placeholder}.
 type_tool() { # command
   if shell_pane; then
-    local p=$REPLY
-    herdr_do pane send-text "$p" "$1" && api pane.focus "{\"pane_id\":\"$p\"}"
+    local p=$REPLY before=${1%%\{*}
+    local -a left
+    herdr_do pane send-text "$p" "$1" || return
+    if [[ $before != $1 ]]; then
+      repeat $(( ${#1} - ${#before} )); do left+=(left); done
+      herdr_do pane send-keys "$p" $left || return
+    fi
+    api pane.focus "{\"pane_id\":\"$p\"}"
   elif copy_text "$1"; then
     notice "no shell prompt in this tab: command copied"
   else

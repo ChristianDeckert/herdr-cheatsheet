@@ -65,7 +65,7 @@ Rows marked `▸` run when you click them:
 - **herdr actions** run through herdr: new tab, split, zoom, next/previous pane, move tab, close pane, tab or workspace, reload config and more. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
-- **Tools** type their command at a shell prompt in the tab, without Enter, so you fill in the placeholders first. See [Tools](#tools).
+- **Tools** type their command at a shell prompt in the tab, without Enter, with the cursor on the first `{placeholder}` to fill in. See [Tools](#tools).
 - **App keys** send the key to the app's pane and focus it: `:w` saves in vim, `P` pushes in lazygit, `F9` kills in htop. See [App keys](#app-keys).
 - **Update**: click `update to x.y.z` or press `u` to run `herdr plugin update`, which shows what changed and asks first. Every open panel then restarts on the new version.
 
@@ -281,7 +281,7 @@ The tools section lists ready-made commands, grouped by tool:
 | gzip, xz, zstd, bzip2, brotli | compress keeping the original, decompress |
 | 7-Zip | create `.7z`, extract into a folder |
 
-Uppercase words (`IN`, `OUT`, `DIR`, `START`, `END`) are placeholders. A click types the command at a shell prompt in the tab, the main pane first, without pressing Enter, and focuses that pane. When no pane in the tab sits at a shell prompt (Claude Code or an editor in every pane), the command goes to the clipboard instead. Every command was run on test files with the installed tools, except 7-Zip's, which follow its documentation, and uses flags that both GNU and BSD tar accept; `.tar.zst` needs GNU tar 1.31 or newer and `zstd` installed. To change the list, copy the plugin's `defaults/tools.txt` into the config directory and edit it: `## tool` lines start a group, then one `command|description` per line.
+Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` and `{end}`, and highlighted in the panel. A click types the command at a shell prompt in the tab, the main pane first, without pressing Enter, puts the cursor on the first placeholder and focuses that pane. Braces rather than `<input>` because the shell would read `<` and `>` as redirects if one is left in by mistake. When no pane in the tab sits at a shell prompt (Claude Code or an editor in every pane), the command goes to the clipboard instead. Every command was run on test files with the installed tools, except 7-Zip's, which follow its documentation, and uses flags that both GNU and BSD tar accept; `.tar.zst` needs GNU tar 1.31 or newer and `zstd` installed. To change the list, copy the plugin's `defaults/tools.txt` into the config directory and edit it: `## tool` lines start a group, then one `command|description` per line.
 
 ## How it works
 

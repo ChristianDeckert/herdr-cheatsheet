@@ -1,34 +1,34 @@
 # name: tools
 # source: man ffmpeg / man ffprobe (ffmpeg 9.0.1, same text as https://ffmpeg.org/ffmpeg.html) ; man tar (bsdtar 3.5.3) ; https://www.gnu.org/software/tar/manual/html_node/gzip.html ; https://lists.gnu.org/archive/html/info-gnu/2019-01/msg00001.html ; man zip ; man unzip ; man gzip ; man xz ; man zstd ; man bzip2 ; brotli --help ; https://7-zip.opensource.jp/chm/cmdline/commands/add.htm ; https://7-zip.opensource.jp/chm/cmdline/commands/extract_full.htm
 ## ffmpeg
-ffmpeg -i IN -c:v libx264 -c:a aac OUT.mp4|convert to mp4 (h264+aac)
-ffmpeg -i IN -vn -c:a copy OUT.m4a|extract audio, no re-encode
-ffmpeg -ss START -to END -i IN -c copy OUT.mp4|trim clip, no re-encode
-ffmpeg -i IN -c:v libx264 -crf 28 OUT.mp4|compress video (crf 28)
-ffmpeg -i IN -vf fps=10,scale=480:-1 OUT.gif|make gif (10 fps, 480px)
-ffmpeg -i IN -vf scale=-2:720 OUT.mp4|resize to 720p
-ffprobe -hide_banner IN|show media info
+ffmpeg -i {input} -c:v libx264 -c:a aac {output}.mp4|convert to mp4 (h264+aac)
+ffmpeg -i {input} -vn -c:a copy {output}.m4a|extract audio, no re-encode
+ffmpeg -ss {start} -to {end} -i {input} -c copy {output}.mp4|trim clip, no re-encode
+ffmpeg -i {input} -c:v libx264 -crf 28 {output}.mp4|compress video (crf 28)
+ffmpeg -i {input} -vf fps=10,scale=480:-1 {output}.gif|make gif (10 fps, 480px)
+ffmpeg -i {input} -vf scale=-2:720 {output}.mp4|resize to 720p
+ffprobe -hide_banner {input}|show media info
 ## tar
-tar -czf OUT.tar.gz DIR|create .tar.gz
-tar -xzf IN.tar.gz|extract .tar.gz
-tar -cJf OUT.tar.xz DIR|create .tar.xz
-tar --zstd -cf OUT.tar.zst DIR|create .tar.zst
-tar -xf IN|extract any archive
-tar -tf IN|list archive contents
+tar -czf {output}.tar.gz {dir}|create .tar.gz
+tar -xzf {input}.tar.gz|extract .tar.gz
+tar -cJf {output}.tar.xz {dir}|create .tar.xz
+tar --zstd -cf {output}.tar.zst {dir}|create .tar.zst
+tar -xf {input}|extract any archive
+tar -tf {input}|list archive contents
 ## zip
-zip -r OUT.zip DIR|zip folder recursively
-unzip IN.zip -d DIR|unzip into DIR
-unzip -l IN.zip|list zip contents
+zip -r {output}.zip {dir}|zip folder recursively
+unzip {input}.zip -d {dir}|unzip into a folder
+unzip -l {input}.zip|list zip contents
 ## gzip, xz, zstd
-gzip -k IN|gzip, keep original
-gzip -d IN.gz|decompress .gz
-xz -k IN|xz, keep original
-xz -d IN.xz|decompress .xz
-zstd -k IN|zstd, keep original
-zstd -d IN.zst|decompress .zst
+gzip -k {input}|gzip, keep original
+gzip -d {input}.gz|decompress .gz
+xz -k {input}|xz, keep original
+xz -d {input}.xz|decompress .xz
+zstd -k {input}|zstd, keep original
+zstd -d {input}.zst|decompress .zst
 ## 7z
-7z a OUT.7z DIR|create .7z archive
-7z x IN -oDIR|extract into DIR
+7z a {output}.7z {dir}|create .7z archive
+7z x {input} -o{dir}|extract into a folder
 ## bzip2, brotli
-bzip2 -k IN|bzip2, keep original
-brotli IN|brotli, keeps original
+bzip2 -k {input}|bzip2, keep original
+brotli {input}|brotli, keeps original
