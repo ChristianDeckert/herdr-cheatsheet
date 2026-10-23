@@ -1,26 +1,61 @@
 # herdr-cheatsheet
 
 <p align="center">
-  <img src="docs/screenshot.png" alt="The cheat-sheet panel: CHEATSHEET banner, just recipes, herdr keybindings, detected iTerm2 shortcuts and the agent overview" width="420">
+  <img src="docs/screenshot.png" alt="The cheat-sheet panel: logo, file search field, just recipes, grouped herdr keys, detected iTerm2 shortcuts, agent overview and panel controls" width="420">
 </p>
 
-A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs and shows:
+A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the right of your tabs, follows whatever you're working on, and puts the keys and commands you need one click away.
 
-- **Banner**: the logo in the "ANSI Shadow" style, with a retro color gradient and the focused project's path. Smaller panels get a compact logo.
-- **Files**: press the search key (`prefix+f` with the binding below), `/` in the panel, or click the row, and search the project's files as you type. Click a result or press Enter to open it, in a new focused tab with its own cheat sheet that closes when you quit the editor. **open with** (key `e`) lists the editors found on your machine, GUI apps and superfile (opens with the file selected) included, plus the system's fallbacks; your pick is shared by all panels. Without a terminal editor beyond vi, vim and nano, the panel suggests installing Fresh and superfile (one click with Homebrew).
-- **Apps**: while Fresh, vim (vi, nvim), Helix, micro, nano, superfile or lazygit runs in one of the tab's panes, a section with its essential keys appears above the recipes, and disappears when the app quits.
-- **just**: the recipes of the project you're working in, from the nearest `justfile` above the focused pane's directory. It follows focus between projects and only appears when the project has a justfile.
-- **herdr**: the keybindings resolved from herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, followed by your custom `[[keys.command]]` bindings under "your keys".
-- **Terminal keys**: the default shortcuts of the terminal emulator you're attached from, detected automatically, with separate macOS and Linux lists. See [Terminal detection](#terminal-detection).
-- **Agents**: every agent pane across your workspaces with its status, with blocked and finished agents first. `(here)` marks the ones in the current tab.
-- **Update notice**: when a newer version is on GitHub, an `update to x.y.z` row appears under the banner. Click it or press `u` to run `herdr plugin update`, which shows what changed and asks before installing. Afterwards every open panel restarts on the new version. Otherwise a dim line at the bottom confirms `✓ up to date` with the installed version, or says the check failed.
+## Features
+
+### What the panel shows
+
+- **Logo**: "CHEATSHEET" in the ANSI Shadow style with a retro gradient, and the focused project's path. Narrow panels get a compact logo.
+- **File search**: a search field for the project's files. See [Search and open files](#search-and-open-files).
+- **App keys**: while Fresh, vim (vi, nvim), Helix, micro, GNU nano, superfile or lazygit runs in the tab, a section with its essential keys appears, and disappears when the app quits. See [App keys](#app-keys).
+- **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects and only appears when there is a justfile.
+- **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
+- **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, VS Code, GNOME Terminal, Konsole, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
+- **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab.
+- **Panel controls**: refresh, hide or show the logo, switch colors, close.
+- **Update status**: `update to x.y.z` under the logo when a new version is out, otherwise `✓ up to date` at the bottom.
+
+### Search and open files
+
+- Start the search with your search key (`prefix+f` with the binding from [Install](#install)), `/` in the panel, or a click on the field. The key also moves the focus into the panel.
+- Matches appear as you type, fuzzy-ranked with fzf when it's installed (`lgnvw` finds `LoginView.swift`). The search covers the project's git root and skips what `.gitignore` lists.
+- Enter or a click opens the file in a new, focused tab named after it, with its own cheat sheet. Quitting the editor closes the tab again.
+- **open with** (key `e`) lists the editors installed on your machine: terminal editors, GUI apps like VS Code, Cursor or Xcode (their own window), superfile (opens with the file selected), plus the system's fallbacks. Your pick applies to all panels.
+- Without a terminal editor beyond vi, vim and nano, the panel suggests installing Fresh and superfile, in one click with Homebrew.
+
+### One click away
 
 Rows marked `▸` run when you click them:
 
 - **Recipes** run inside the panel. Press any key to return, and Ctrl-C stops long-running ones.
-- **herdr actions** like new tab, split, zoom, next pane, move tab or close tab run through herdr. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
+- **herdr actions** run through herdr: new tab, split, zoom, next/previous pane, move tab, close pane, tab or workspace, reload config and more. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
+- **Update**: click `update to x.y.z` or press `u` to run `herdr plugin update`, which shows what changed and asks first. Every open panel then restarts on the new version.
+
+The mouse wheel scrolls the panel when it's taller than the pane.
+
+### Fits your terminal
+
+- **Light and dark**: the panel asks the terminal for its background and switches between a pastel and a deeper palette, live when the terminal changes appearance.
+- **Retro or terminal colors** (key `t`): the logo's pink, lavender and cyan, or your theme's own colors.
+- **Logo on or off** (key `b`). The pane's frame shows the name `cheatsheet` only while the logo is hidden.
+- **Width**: 54 columns by default, enough for the full logo, at most 40% of the tab.
+- **Key symbols**: `⌃ ⌥ ⇧ ⌘` on macOS, `^` for Control on Linux.
+
+### Stays out of your way
+
+- It opens in every new workspace and tab, or only on request, as you configure it. The toggle key opens or closes it in the current tab.
+- It runs as a herdr plugin pane, directly and without your shell, so your shell history, prompt hooks and `.zshrc` are never involved.
+- After a herdr restart, the panels come back by themselves.
+- It redraws only when something it shows changes: the focused project, a justfile, your herdr config, an agent's status, a running app, the pane size.
+
+### Example
 
 ```
  ███╗█╗ █╗████╗ ██╗ █████╗████╗█╗ █╗████╗████╗█████╗
@@ -80,6 +115,7 @@ panel
 - herdr 0.9.4 or newer, on macOS or Linux
 - `zsh` and `jq`
 - [`just`](https://github.com/casey/just) (optional, needed for the recipe section)
+- optional for the file search: [`fzf`](https://github.com/junegunn/fzf) for fuzzy ranking, [`rg`](https://github.com/BurntSushi/ripgrep) or [`fd`](https://github.com/sharkdp/fd) for fast file listing. Without them it falls back to `git ls-files` or `find` and an in-order match
 
 ## Install
 
@@ -193,11 +229,11 @@ macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the 
 herdr plugin uninstall christiandeckert.cheatsheet
 ```
 
-Then remove the `[[keys.command]]` entry and close any open panels with `q`.
+Then remove the `[[keys.command]]` entries and close any open panels with `q`.
 
 ## Trust
 
-Like every herdr plugin, this runs as ordinary code under your user account. Read `panel.zsh` and `sheet.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory.
+Like every herdr plugin, this runs as ordinary code under your user account. Read `panel.zsh`, `sheet.zsh` and `editor.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory, and an install row runs exactly the `brew install` command it shows.
 
 ## License
 
