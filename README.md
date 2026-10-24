@@ -5,24 +5,10 @@ A clickable cheat-sheet panel for [herdr](https://herdr.dev). It docks on the ri
 ## tl;dr: at a glance
 
 ```sh
-herdr plugin install ChristianDeckert/herdr-cheatsheet
+curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/main/install.sh | sh
 ```
 
-Add two keys to `~/.config/herdr/config.toml`, then run `herdr server reload-config`:
-
-```toml
-[[keys.command]]
-key = "prefix+shift+k"
-type = "plugin_action"
-command = "christiandeckert.cheatsheet.toggle"
-description = "toggle cheat sheet"
-
-[[keys.command]]
-key = "prefix+f"
-type = "plugin_action"
-command = "christiandeckert.cheatsheet.search"
-description = "search files"
-```
+One command installs the plugin, adds its two keys to herdr's config and reloads it. See [Install](#install) for what it does and the manual steps.
 
 - The panel opens on the right of every new tab. `prefix+shift+k` shows or hides it, `prefix+f` searches the project's files.
 - Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
@@ -151,10 +137,32 @@ panel
 ## Install
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/main/install.sh | sh
+```
+
+The script ([`install.sh`](install.sh)):
+
+1. checks that herdr 0.9.4 or newer, zsh and jq are installed, and tells you how to install what's missing
+2. runs `herdr plugin install ChristianDeckert/herdr-cheatsheet`, or `herdr plugin update` if it's already installed; herdr shows the manifest and scripts and asks before installing
+3. adds the two key bindings below to `~/.config/herdr/config.toml` (or `$XDG_CONFIG_HOME/herdr/config.toml`), each only if that action isn't bound yet and the key is free. A taken key is skipped, and the script prints the block to add with another key. It backs up the file first, lets `herdr config check` validate the result, and restores the backup if herdr rejects it
+4. reloads herdr's config
+
+Running it again updates the plugin and changes nothing else. Options go after `sh -s --`:
+
+| Option | Effect |
+|---|---|
+| `--yes` | install or update without herdr's review prompt, for unattended setups |
+| `--uninstall` | remove the plugin and the key bindings the script added; your plugin settings stay |
+
+To read the script before running it: `curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/main/install.sh | less`.
+
+### Manual install
+
+```sh
 herdr plugin install ChristianDeckert/herdr-cheatsheet
 ```
 
-herdr shows the manifest and scripts before installing. Add a toggle key to `~/.config/herdr/config.toml` and reload with `herdr server reload-config`:
+herdr shows the manifest and scripts before installing. Add the keys to `~/.config/herdr/config.toml` and reload with `herdr server reload-config`:
 
 ```toml
 [[keys.command]]
@@ -299,14 +307,14 @@ Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` an
 ## Uninstall
 
 ```sh
-herdr plugin uninstall christiandeckert.cheatsheet
+curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/main/install.sh | sh -s -- --uninstall
 ```
 
-Then remove the `[[keys.command]]` entries and close any open panels with `q`.
+This removes the plugin and its key bindings, after backing up `config.toml`. Close open panels with `q`. By hand: `herdr plugin uninstall christiandeckert.cheatsheet`, then remove the `[[keys.command]]` entries.
 
 ## Trust
 
-Like every herdr plugin, this runs as ordinary code under your user account. Read `panel.zsh`, `sheet.zsh` and `editor.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory, an install row runs exactly the `brew install` command it shows, an app key row sends exactly the key it shows to that app, and a tools row only types its command at your prompt; you press Enter.
+Like every herdr plugin, this runs as ordinary code under your user account. Read `install.sh`, `panel.zsh`, `sheet.zsh` and `editor.zsh` before installing. Clicking a `just` recipe or a custom binding runs exactly that command in the focused project's directory, an install row runs exactly the `brew install` command it shows, an app key row sends exactly the key it shows to that app, and a tools row only types its command at your prompt; you press Enter.
 
 ## License
 
