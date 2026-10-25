@@ -102,6 +102,38 @@ line() { OUT+=("$1"); PLAIN+=(""); ACT+=("") }
 
 header() { (( ${#OUT} )) && line ""; line "${B}$1${R}" }
 
+# Collapsible sections. The collapsed ones are listed in a state file shared by all panels, so a click
+# on a heading folds or unfolds that section everywhere.
+COLLAPSED_FILE="$CS_STATE_DIR/collapsed"
+typeset -a COLLAPSED
+read_collapsed() {
+  COLLAPSED=()
+  [[ -f $COLLAPSED_FILE ]] && COLLAPSED=(${(f)"$(<$COLLAPSED_FILE)"})
+}
+
+set_collapsed() { # id on|off
+  read_collapsed
+  COLLAPSED=(${COLLAPSED:#$1})
+  [[ $2 == on ]] && COLLAPSED+=("$1")
+  print -rl -- $COLLAPSED > "$COLLAPSED_FILE.tmp" && mv "$COLLAPSED_FILE.tmp" "$COLLAPSED_FILE"
+}
+
+toggle_section() { # id
+  read_collapsed
+  if (( ${COLLAPSED[(Ie)$1]} )); then set_collapsed "$1" off; else set_collapsed "$1" on; fi
+}
+
+# A section heading with ▾ (open) or ▸ (collapsed); clicking it toggles the section. Returns false for a
+# collapsed section, so the caller stops after its heading.
+section() { # id title
+  setopt local_options extended_glob
+  local mark="▾" open=0
+  (( ${COLLAPSED[(Ie)$1]} )) && { mark="▸"; open=1 }
+  (( ${#OUT} )) && line ""
+  OUT+=("${D}$mark${R} ${B}$2${R}") PLAIN+=("$mark ${(S)2//$'\e'\[[0-9;]#m/}") ACT+=("section:$1")
+  return $open
+}
+
 # A group inside a section: a colored label and a dim rule to the panel edge.
 group() { # label color
   local rule=$(( COLS - ${#1} - 3 ))
@@ -203,7 +235,7 @@ render_agents() {
   "$H" workspace list 2>/dev/null | jq -r '.result.workspaces[] | "\(.workspace_id)\t\(.label)"' |
     while IFS=$'\t' read -r id lbl; do wsl[$id]=$lbl; done
   counts=$(print -r -- "$agents" | jq -r 'group_by(.agent_status) | map("\(length) \(.[0].agent_status)") | join(" · ")')
-  header "agents ${D}($counts)${R}"
+  section agents "agents ${D}($counts)${R}" || return
   print -r -- "$agents" | jq -r --argjson max "$max" \
     '.[:$max][] | [.pane_id, .agent_status, .tab_id, .workspace_id, (.terminal_title_stripped // .agent)] | @tsv' |
     while IFS=$'\t' read -r p st tab ws title; do
@@ -246,7 +278,7 @@ find_up() { # dir name... -> first match walking up
 render_just() {
   local jf=$(find_up "$1" justfile Justfile .justfile) a c
   [[ -n "$jf" ]] || return
-  header "just — ${jf:h:t}"
+  section just "just — ${jf:h:t}" || return
   (( $+commands[just] )) || { line " ${D}install just to list recipes${R}"; return }
   ALIAS=()
   local af="${jf:h}/$CHEATSHEET_ALIAS_FILE"
@@ -264,7 +296,7 @@ render_just() {
 }
 
 render_herdr() {
-  header "herdr ${D}(prefix $PREFIX)${R}"
+  section herdr "herdr ${D}(prefix $PREFIX)${R}" || return
   # name, label, click action ("" = only reachable from herdr's UI, shown dimmed)
   local -a curated=(
     "## tabs" "" ""
@@ -370,15 +402,15 @@ pick_terminal() {
 
 render_terminal() {
   [[ -s "$TERMKEYS" ]] || return
-  render_keyfile "$TERMKEYS" "$TERMHEAD"
+  render_keyfile "$TERMKEYS" "$TERMHEAD" terminal || return
   [[ -n "$TERMHINT" ]] && line "   ${D}$TERMHINT${R}"
 }
 
 # A key list as a section: keys|description lines, "## label" starts a group, other "#" lines are
 # metadata. For an app (third argument) the rows send their keys to the app's pane on click, and the
 # portable Ctrl+/Alt+/Shift+ notation is shown as ⌃⌥⇧ on macOS.
-render_keyfile() { # file heading [app-id]
-  header "$2"
+render_keyfile() { # file heading section-id [app-id]
+  section "$3" "$2" || return
   local -a keys descs acts
   local l k d PENDING_GROUP=""
   while IFS= read -r l; do
@@ -387,15 +419,15 @@ render_keyfile() { # file heading [app-id]
       "#"*|"") ;;
       *)
         k=${l%%|*} d=${${l#*|}:#$l}
-        if [[ -n $3 ]]; then
-          app_entries "$k" "$d" "$3"
+        if [[ -n $4 ]]; then
+          app_entries "$k" "$d" "$4"
           keys+=("${E_KEYS[@]}") descs+=("${E_DESCS[@]}") acts+=("${E_ACTS[@]}")
         else
           keys+=("$k") descs+=("$d") acts+=("")
         fi ;;
     esac
   done < "$1"
-  if [[ -n $3 && $CTRL_SYM == "⌃" ]]; then
+  if [[ -n $4 && $CTRL_SYM == "⌃" ]]; then
     keys=("${(@)keys//Ctrl+/⌃}") keys=("${(@)keys//Alt+/⌥}") keys=("${(@)keys//Shift+/⇧}")
   fi
   # Linux-style keys (Ctrl+Shift+…) are longer than the default column
@@ -527,7 +559,7 @@ render_tools() {
   [[ $CHEATSHEET_TOOLS == off ]] && return
   local f=$(cs_tools_file) l cmd desc PENDING_GROUP=""
   [[ -n $f ]] || return
-  header "tools"
+  section tools "tools" || return
   while IFS= read -r l; do
     case $l in
       "## "*) PENDING_GROUP=${l#"## "} ;;
@@ -595,7 +627,7 @@ typeset -A APP_OF=(
 )
 # Scripts run under an interpreter (ranger is Python): for these the script's name is what's matched.
 typeset -a INTERPRETERS=(python python3 node ruby perl sh bash zsh)
-typeset -a APPS
+typeset -a APPS PREV_APPS
 typeset -A APP_PANE
 
 # Sets APPS to the known apps in the foreground of this tab's panes, the focused pane's first, and
@@ -624,6 +656,13 @@ detect_apps() {
       [[ -n $id ]] && (( ! ${APPS[(Ie)$id]} )) && { APPS+=($id); APP_PANE[$id]=$p }
     done
   done
+  # an app that just started (or that a new panel finds) gets its section opened, even if it was
+  # collapsed during an earlier run
+  read_collapsed
+  for id in $APPS; do
+    (( ! ${PREV_APPS[(Ie)$id]} && ${COLLAPSED[(Ie)app:$id]} )) && set_collapsed "app:$id" off
+  done
+  PREV_APPS=($APPS)
 }
 
 render_apps() {
@@ -631,13 +670,14 @@ render_apps() {
   for id in $APPS; do
     f=$(cs_app_file "$id")
     [[ -n $f ]] || continue
-    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" "$id"
+    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" "app:$id" "$id"
   done
 }
 
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
 build() {
   OUT=() ACT=() PLAIN=()
+  read_collapsed
   apply_palette
   sync_label
   if (( SEARCH )); then
@@ -730,7 +770,7 @@ render_search() {
   if (( ! SEARCH )); then
     local bound=$(bound_key "$CS_PLUGIN_ID.search") key="/"
     [[ -n $bound ]] && key=$(fmt_key "$bound")
-    header "files"
+    section files "files" || return
     search_box "search files…" "$key" "files:search"
     render_editor
     return
@@ -918,7 +958,7 @@ open_selected() {
 
 # The panel's own controls, laid out like the other sections; r and q also work as keys.
 render_panel() {
-  header "panel"
+  section panel "panel" || return
   row "r" "refresh" "$K" "panel:refresh"
   if banner_on; then row "b" "hide logo" "$K" "panel:banner"
   else row "b" "show logo" "$K" "panel:banner"
@@ -1151,6 +1191,7 @@ execute() { # action
     files:search) start_search ;;
     send:*) send_keys_to "${a#send:}" ;;
     tool:*) type_tool "${a#tool:}" ;;
+    section:*) toggle_section "${a#section:}" ;;
     editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )) ;;
     editor:set:*) set_editor "${a#editor:set:}" ;;
     install:*) run_inline "${a#install:}" wait; rehash ;;
@@ -1266,7 +1307,7 @@ while :; do
   jf=$(find_up "$DIR" justfile Justfile .justfile)
   agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
     | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" "$COLLAPSED_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   handle_input
 done

@@ -12,6 +12,7 @@ One command installs the plugin, adds its two keys to herdr's config and reloads
 
 - The panel opens on the right of every new tab. `prefix+shift+k` shows or hides it, `prefix+f` searches the project's files.
 - Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
+- Click a section's heading to collapse or expand it; all panels follow. An app's section opens when the app starts.
 - Keys inside the panel: `/` search files · `e` open with · `r` refresh · `b` logo · `t` colors · `q` close · `u` update.
 - Settings live in `config.zsh` in `$(herdr plugin config-dir christiandeckert.cheatsheet)`.
 - Needs herdr 0.9.4+, zsh and jq on macOS or Linux; just, fzf and rg are optional.
@@ -61,6 +62,7 @@ The mouse wheel scrolls the panel when it's taller than the pane.
 
 - **Light and dark**: the panel asks the terminal for its background and switches between a pastel and a deeper palette, live when the terminal changes appearance.
 - **Retro or terminal colors** (key `t`): the logo's pink, lavender and cyan, or your theme's own colors.
+- **Collapsible sections**: click a heading (`▾` open, `▸` collapsed) to fold or unfold that section. The state is shared by all panels in all workspaces, and an app's key section opens whenever the app starts.
 - **Logo on or off** (key `b`). The pane's frame shows the name `cheatsheet` only while the logo is hidden.
 - **Width**: 54 columns by default, enough for the full logo, at most 40% of the tab.
 - **Key symbols**: `⌃ ⌥ ⇧ ⌘` on macOS, `^` for Control on Linux.
@@ -83,18 +85,18 @@ The mouse wheel scrolls the panel when it's taller than the pane.
  ╚══╝╚╝ ╚╝╚═══╝╚╝ ╚╝  ╚╝  ╚═══╝╚╝ ╚╝╚═══╝╚═══╝  ╚╝
  ~/code/my-app
 
-files
+▾ files
  ╭───────────────────────────────────────────────────╮
  │ search files…                                ⌃B f │
  ╰───────────────────────────────────────────────────╯
  ▸ e             open with: fresh
 
-just — my-app
+▾ just — my-app
  ▸ build         [xb] Build the app for the simulator
  ▸ run           [xr] Build, install and launch on the simulator
  ▸ test          [xt] Run tests; one spec: `just test SomeSpec`
 
-herdr (prefix ⌃B)
+▾ herdr (prefix ⌃B)
  tabs ─────────────────────────────────────────────
  ▸ ⌃B c          new tab
  ▸ ⌃B ⇧t         rename tab
@@ -108,19 +110,19 @@ herdr (prefix ⌃B)
  ▸ ⌃B ⌥r         just run (build + launch in simulator)
  ▸ ⌃B ⇧k         toggle cheat sheet
 
-iTerm2 (detected)
+▾ iTerm2 (detected)
  tabs ─────────────────────────────────────────────
    ⌘T            new tab
  panes ────────────────────────────────────────────
    ⌘D            split vertically (right)
 
-agents (1 blocked · 2 idle · 1 working)
+▾ agents (1 blocked · 2 idle · 1 working)
  ▸ ● blocked  api · Waiting for approval
  ▸ ◐ working  my-app · Refactor login flow (here)
  ▸ ○ idle     docs · Update changelog
  ▸ ○ idle     my-app · Fix flaky test
 
-panel
+▾ panel
  ▸ r             refresh
  ▸ b             hide logo
  ▸ t             terminal colors
