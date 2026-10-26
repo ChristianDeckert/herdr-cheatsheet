@@ -33,7 +33,7 @@ Below the logo, the file search always comes first, then the key sections of the
 - **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects; without a justfile it says so, and like any section it can be hidden.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
 - **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli. See [Tools and devtools](#tools-devtools-and-packages).
-- **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Flutter, Python, Ruby, Rust, Node.js, Docker, Git and Go.
+- **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Flutter, Python, Ruby, Rust, Node.js, Docker, Git and Go, the GitHub, GitLab and Bitbucket command lines, and linters and formatters (SwiftLint, SwiftFormat, swift-format, ktlint, detekt, Spotless, custom_lint, DCM, Prettier, ESLint, Ruff).
 - **Packages**: install, remove, search, update and clean up with Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak. Only the package managers available on your system show by default; the others wait in the hidden list.
 - **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, foot, urxvt, xterm, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab. Without agents the section says so.
@@ -309,6 +309,14 @@ Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` an
 | python, ruby, rust, node, go | environments, dependencies, build, run, test, lint |
 | docker | build, run, ps, logs, exec, compose |
 | git | status, log graph, stash, interactive rebase, amend, clean dry run, new branch |
+| github | `gh`: login status, clone, browse, pull requests (create, list, checkout, diff, approve, squash-merge), issues, CI runs |
+| gitlab | `glab`: login status, clone, merge requests (create, list, review queue, checkout, diff, approve, squash-merge), issues, pipelines |
+| bitbucket | git clone and push, the new-PR page (macOS `open`), and Atlassian's Teamwork Graph CLI (`twg`): inbox, PR query, search, details and merge checks, pipelines, repo info. Bitbucket has no standalone CLI; `twg` needs `twg setup bitbucket` once |
+| swift lint | SwiftLint (lint, fix, strict, baseline, rules), SwiftFormat (format, lint, dry run), swift-format (format, lint, config) |
+| kotlin lint | ktlint (lint, format, summary, baseline, editorconfig), detekt (CLI, Gradle, auto-correct, baseline, config), Spotless (check, apply) |
+| dart lint | `dart analyze` (strict), custom_lint (run, fix), DCM (analyze, fix, unused code and files, dependencies, baseline) |
+| web lint | Prettier (check, write, list, cache, config path), ESLint (lint, fix, zero warnings, cache, suppressions, config inspector, init) |
+| python lint | Ruff: check, fix (safe and unsafe), diff, watch, statistics, sort imports, noqa, format, format check and diff, explain a rule |
 
 The packages section lists Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak with install, remove, search, info, list, update, upgrade and cleanup commands; `sudo` is included where the tool needs root.
 

@@ -1,5 +1,5 @@
 # name: devtools
-# source: man xcodebuild ; xcodebuild -help ; xcrun simctl help (list/boot/install/launch/erase) ; swift package --help ; swift build --help ; swift test --help ; pod --help ; pod repo --help ; xcode-select --help ; https://developer.android.com/build/building-cmdline ; https://developer.android.com/studio/test/command-line ; https://developer.android.com/studio/write/lint ; https://developer.android.com/tools/adb ; adb --help ; emulator -help ; sdkmanager --help ; flutter <command> --help (doctor, create, pub, devices, emulators, run, test, analyze, build, clean, upgrade) ; dart format --help ; dart fix --help ; https://docs.python.org/3/library/venv.html ; https://pip.pypa.io/en/stable/cli/pip_install/ ; https://docs.astral.sh/uv/reference/cli/ ; https://bundler.io/man/bundle-update.1.html ; https://guides.rubygems.org/command-reference/#gem-install ; https://doc.rust-lang.org/cargo/commands/cargo-run.html ; https://doc.rust-lang.org/clippy/usage.html ; https://rust-lang.github.io/rustup/basics.html ; https://docs.npmjs.com/cli/commands ; https://docs.docker.com/reference/cli/docker/ ; https://docs.docker.com/reference/cli/docker/compose/ ; https://git-scm.com/docs ; https://pkg.go.dev/cmd/go
+# source: man xcodebuild ; xcodebuild -help ; xcrun simctl help (list/boot/install/launch/erase) ; swift package --help ; swift build --help ; swift test --help ; pod --help ; pod repo --help ; xcode-select --help ; https://developer.android.com/build/building-cmdline ; https://developer.android.com/studio/test/command-line ; https://developer.android.com/studio/write/lint ; https://developer.android.com/tools/adb ; adb --help ; emulator -help ; sdkmanager --help ; flutter <command> --help (doctor, create, pub, devices, emulators, run, test, analyze, build, clean, upgrade) ; dart format --help ; dart fix --help ; https://docs.python.org/3/library/venv.html ; https://pip.pypa.io/en/stable/cli/pip_install/ ; https://docs.astral.sh/uv/reference/cli/ ; https://bundler.io/man/bundle-update.1.html ; https://guides.rubygems.org/command-reference/#gem-install ; https://doc.rust-lang.org/cargo/commands/cargo-run.html ; https://doc.rust-lang.org/clippy/usage.html ; https://rust-lang.github.io/rustup/basics.html ; https://docs.npmjs.com/cli/commands ; https://docs.docker.com/reference/cli/docker/ ; https://docs.docker.com/reference/cli/docker/compose/ ; https://git-scm.com/docs ; https://pkg.go.dev/cmd/go ; swiftlint help lint ; swiftlint help rules ; swiftlint help baseline (0.65.1) ; swiftformat --help (0.64.2) ; swift format lint --help ; swift format format --help ; swift format dump-configuration --help (swift-format 6.3.0) ; dart analyze --help --verbose (Dart 3.13.5) ; https://ktlint.github.io/ktlint/latest/install/cli/ ; https://detekt.dev/docs/gettingstarted/cli/ ; https://detekt.dev/docs/gettingstarted/gradle/ ; https://github.com/diffplug/spotless/blob/main/plugin-gradle/README.md ; https://pub.dev/packages/custom_lint ; https://dcm.dev/docs/cli/ ; https://prettier.io/docs/cli ; https://eslint.org/docs/latest/use/command-line-interface ; https://docs.astral.sh/ruff/linter/ ; https://docs.astral.sh/ruff/formatter/ ; gh version 2.103.2: gh <cmd> --help (auth, repo, browse, pr, issue, run) ; glab 1.124.0: glab <cmd> --help (auth, repo, mr, issue, ci) ; git push -h ; git switch -h ; https://support.atlassian.com/bitbucket-cloud/docs/clone-a-git-repository/ ; https://support.atlassian.com/bitbucket-cloud/kb/terminal-not-showing-create-pull-request-for-branch-http-link-to-bitbucket-repo/ ; twg CLI 1.3.9: https://atlassian.github.io/twg-cli/commands/commands-catalog/ ; https://atlassian.github.io/twg-cli/faq/ ; https://atlassian.github.io/twg-cli/changelog/ ; https://atlassian.github.io/twg-cli/getting-started/how-authentication-works/ ; https://github.com/atlassian/twg-cli
 ## ios @macos
 xcodebuild -list|list schemes and targets
 xcodebuild -scheme {scheme} -destination 'platform=iOS Simulator,name={device}' build|build for simulator
@@ -102,3 +102,119 @@ go run .|run package in current dir
 go build ./...|build all packages
 go test ./...|test all packages
 go mod tidy|sync go.mod with imports
+## swift lint
+swiftlint|lint swift files
+swiftlint --fix|autocorrect violations
+swiftlint --strict|fail on warnings too (ci)
+swiftlint --write-baseline {file}|save violations as baseline
+swiftlint --baseline {file}|report only new violations
+swiftlint rules|list rules and their status
+swiftformat .|format swift files in place
+swiftformat --lint .|fail on unformatted files (ci)
+swiftformat --dry-run .|preview, write nothing
+swift format -i -r .|format in place (swift-format)
+swift format lint -r --strict .|lint, findings as errors
+swift format dump-configuration > .swift-format|write default swift-format config
+## kotlin lint
+ktlint|lint kotlin files recursively
+ktlint -F|autocorrect style violations
+ktlint --reporter=plain-summary|violation counts per rule
+ktlint --baseline=ktlint-baseline.xml|lint vs baseline (creates it)
+ktlint generateEditorConfig --code-style ktlint_official|print .editorconfig scaffold
+detekt --input {path}|analyze with detekt cli
+./gradlew detekt|run detekt via gradle
+./gradlew detekt --auto-correct|detekt with autocorrect
+./gradlew detektBaseline|create detekt baseline
+./gradlew detektGenerateConfig|generate default detekt config
+./gradlew spotlessCheck|check formatting (ci)
+./gradlew spotlessApply|apply spotless formatting
+## dart lint
+dart analyze|analyze dart code
+dart analyze --fatal-infos|fail on infos too (ci)
+dart analyze {dir}|analyze one directory
+dart run custom_lint|run custom_lint rules
+dart run custom_lint --fix|apply custom_lint fixes
+dcm analyze lib|dcm lint rules on lib
+dcm analyze --fatal-style lib|fail on style issues (ci)
+dcm fix lib|apply dcm fixes
+dcm check-unused-code lib|find unused declarations
+dcm check-unused-files lib|find unused dart files
+dcm check-dependencies lib|find missing/unused deps
+dcm init baseline --analyze --unused-code lib|baseline existing dcm issues
+## web lint
+npx prettier . --check|check formatting (ci)
+npx prettier . --write|format files in place
+npx prettier . --list-different|list unformatted files
+npx prettier . --write --cache|format, skip unchanged (cached)
+npx prettier --find-config-path {file}|show config file for a file
+npx eslint .|lint js/ts files
+npx eslint . --fix|lint and autofix
+npx eslint . --max-warnings 0|fail on any warning (ci)
+npx eslint . --cache|lint changed files only
+npx eslint . --suppress-all|suppress existing violations
+npx eslint --inspect-config|open config inspector
+npm init @eslint/config|create eslint config
+## python lint
+ruff check|lint python files
+ruff check --fix|lint and apply safe fixes
+ruff check --fix --unsafe-fixes|also apply unsafe fixes
+ruff check --diff|preview fixes as diff
+ruff check --watch|re-lint on file changes
+ruff check --statistics|violation counts per rule
+ruff check --select I --fix|sort imports
+ruff check --add-noqa|add noqa to existing violations
+ruff format|format python files
+ruff format --check|check formatting (ci)
+ruff format --diff|preview formatting as diff
+ruff rule {code}|explain a rule
+## github
+gh auth status|show github login status
+gh repo clone {repo}|clone owner/repo
+gh browse|open repo in browser
+gh pr create --fill|open a PR from this branch
+gh pr list|list open PRs
+gh pr status|PRs relevant to you
+gh pr checkout {number}|check out a PR
+gh pr view --web|open this branch's PR in browser
+gh pr diff {number}|show a PR's diff
+gh pr review {number} --approve|approve a PR
+gh pr merge {number} --squash --delete-branch|squash-merge, delete branch
+gh issue list|list open issues
+gh issue create|create an issue (prompts)
+gh issue view {number}|show an issue
+gh run watch|watch a CI run (pick one)
+gh run view --log-failed|logs of failed steps (pick run)
+## gitlab
+glab auth status|show gitlab login status
+glab repo clone {repo}|clone group/project
+glab repo view --web|open project in browser
+glab mr create --fill --yes|push and open an MR from branch
+glab mr list|list open MRs
+glab mr list --reviewer=@me|MRs awaiting your review
+glab mr checkout {id}|check out an MR
+glab mr view {id} --web|open an MR in browser
+glab mr diff {id}|show an MR's diff
+glab mr approve {id}|approve an MR
+glab mr merge {id} --squash --remove-source-branch|squash-merge, delete branch
+glab issue list|list open issues
+glab issue create|create an issue (prompts)
+glab ci status|pipeline status of this branch
+glab ci view|interactive pipeline view
+glab ci trace|follow a job's log (pick job)
+## bitbucket
+git clone git@bitbucket.org:{workspace}/{repo}.git|clone a repo over ssh
+git push -u origin {branch}|push branch, prints PR link
+open 'https://bitbucket.org/{workspace}/{repo}/pull-requests/new?source={branch}&t=1'|new PR form in browser (macOS)
+git fetch origin && git switch {branch}|check out a PR's source branch
+twg setup bitbucket|add bitbucket token to twg
+twg doctor|check twg auth and connectivity
+twg help bb|list twg bitbucket commands
+twg bitbucket inbox|PRs needing your attention
+twg bitbucket pull-requests query|query pull requests
+twg bitbucket search prs '{text}'|search PR titles and text
+twg bb pull-requests get {id}|show a PR's details
+twg bb pull-requests mergeability {id}|merge checks of a PR
+twg bitbucket pipeline query|recent pipeline runs
+twg bitbucket pipeline tail {build_number}|stream a pipeline's step log
+twg bb repo get|show this repo's details
+twg bitbucket repo url|print this repo's web url
