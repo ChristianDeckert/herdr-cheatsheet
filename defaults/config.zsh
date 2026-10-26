@@ -33,9 +33,10 @@
 # To change a list, copy it from the plugin's defaults/apps/ into an apps/ folder next to this file.
 # CHEATSHEET_APPS=on
 
-# Tools section with ready-made commands (ffmpeg, tar, zip, gzip, xz, zstd, 7z): on, off. A click types
-# the command at a shell prompt in the tab. To change it, copy the plugin's defaults/tools.txt next to
-# this file and edit it there.
+# Tools, devtools and packages sections with ready-made commands (ffmpeg, compression; iOS, Android,
+# languages, docker, git; Homebrew, apt, pacman, ...): on, off. Single sections and groups can also be hidden in the panel. A click types
+# the command at a shell prompt in the tab. To change a list, copy the plugin's defaults/tools.txt or
+# defaults/devtools.txt or defaults/packages.txt next to this file and edit it there.
 # CHEATSHEET_TOOLS=on
 
 # When the panel opens by itself: all (every new tab), first (tab 1 of each workspace), off (toggle key only).

@@ -1,0 +1,72 @@
+# name: packages
+# source: brew help install|uninstall|search|info|list|upgrade|outdated|cleanup|update (Homebrew, run locally) ; https://man.macports.org/port.1.html ; https://guide.macports.org/chunked/using.html ; https://manpages.ubuntu.com/manpages/noble/man8/apt.8.html ; https://manpages.debian.org/bookworm/apt/apt.8.en.html ; https://dnf.readthedocs.io/en/latest/command_ref.html ; https://man.archlinux.org/man/pacman.8.en ; https://manpages.opensuse.org/Tumbleweed/zypper/zypper.8.en.html ; https://manpages.ubuntu.com/manpages/noble/man8/snap.8.html ; https://docs.flatpak.org/en/latest/flatpak-command-reference.html
+## homebrew @macos @linux ?brew
+brew install {package}|install a formula
+brew install --cask {cask}|install a gui app (cask)
+brew uninstall {package}|uninstall formula or cask
+brew search {text}|search formulae and casks
+brew info {package}|show package info
+brew outdated|list outdated packages
+brew upgrade|upgrade all packages
+brew cleanup|remove old versions/caches
+## macports @macos ?port
+sudo port install {package}|install a port
+sudo port uninstall {package}|uninstall a port
+port search {text}|search ports
+port info {package}|show port info
+port installed|list installed ports
+sudo port selfupdate|update macports and ports
+sudo port upgrade outdated|upgrade all outdated ports
+sudo port reclaim|remove inactive ports/files
+## apt @linux ?apt
+sudo apt install {package}|install a package
+sudo apt remove {package}|remove a package
+apt search {text}|search packages
+apt show {package}|show package info
+apt list --installed|list installed packages
+sudo apt update|update package index
+sudo apt upgrade|upgrade all packages
+sudo apt autoremove|remove unused dependencies
+## dnf @linux ?dnf
+sudo dnf install {package}|install a package
+sudo dnf remove {package}|remove a package
+dnf search {text}|search packages
+dnf info {package}|show package info
+dnf list --installed|list installed packages
+dnf check-update|refresh index, list updates
+sudo dnf upgrade|upgrade all packages
+sudo dnf autoremove|remove unused dependencies
+## pacman @linux ?pacman
+sudo pacman -S {package}|install a package
+sudo pacman -Rs {package}|remove package and its deps
+pacman -Ss {text}|search packages
+pacman -Si {package}|show package info
+pacman -Q|list installed packages
+sudo pacman -Syu|sync db and upgrade all
+sudo pacman -Sc|clean old package cache
+pacman -Qdtq | sudo pacman -Rs -|remove orphaned packages
+## zypper @linux ?zypper
+sudo zypper install {package}|install a package
+sudo zypper remove --clean-deps {package}|remove package and its deps
+zypper search {text}|search packages
+zypper info {package}|show package info
+zypper search --installed-only|list installed packages
+sudo zypper refresh|refresh repositories
+sudo zypper update|upgrade installed packages
+sudo zypper clean --all|clean metadata and caches
+## snap @linux ?snap
+sudo snap install {package}|install a snap
+sudo snap remove {package}|remove a snap
+snap find {text}|search the snap store
+snap info {package}|show snap info
+snap list|list installed snaps
+snap refresh --list|list pending updates
+sudo snap refresh|update all snaps
+## flatpak @linux ?flatpak
+flatpak install flathub {package}|install app from flathub
+flatpak uninstall {package}|uninstall an app
+flatpak search {text}|search remotes
+flatpak info {package}|show installed app info
+flatpak list --app|list installed apps
+flatpak update|update all apps/runtimes
+flatpak uninstall --unused|remove unused runtimes

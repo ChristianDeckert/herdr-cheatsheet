@@ -1,22 +1,30 @@
 # name: kitty
-# source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts
+# source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts ; https://github.com/kovidgoyal/kitty/blob/master/kitty/options/definition.py
 ## tabs
 Ctrl+Shift+T|new tab
-Ctrl+Shift+← / →|prev / next tab
 Ctrl+Shift+Q|close tab
+Ctrl+Shift+← / →|prev / next tab
+Ctrl+Shift+, / .|move tab back / forward
+Ctrl+Shift+Alt+T|rename tab
 ## panes
 Ctrl+Shift+Enter|new window (split)
+Ctrl+Shift+W|close window
 Ctrl+Shift+[ / ]|prev / next window
 Ctrl+Shift+1..9|go to window N
 Ctrl+Shift+L|next layout
-Ctrl+Shift+W|close window
+Ctrl+Shift+R|resize window mode
 ## text
+Ctrl+Shift+C / V|copy / paste
+Ctrl+Shift+H|scrollback in pager
 Ctrl+Shift+/|search scrollback
-Ctrl+Shift+C|copy
-Ctrl+Shift+V|paste
+Ctrl+Shift+G|last command output
+Ctrl+Shift+Z / X|prev / next prompt
+Ctrl+Shift+E|open URL (hints)
+Ctrl+Shift+U|unicode input
 ## app
-Ctrl+Shift+= / -|font size +/-
+Ctrl+Shift+N|new OS window
+Ctrl+Shift+= / -|font size + / -
 Ctrl+Shift+Bksp|reset font size
-Ctrl+Shift+F2|edit config
-Ctrl+Shift+F5|reload config
+Ctrl+Shift+F11|fullscreen
+Ctrl+Shift+F2 / F5|edit / reload config
 Ctrl+Shift+F3|command palette

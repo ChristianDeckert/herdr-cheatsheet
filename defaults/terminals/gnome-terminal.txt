@@ -1,20 +1,24 @@
 # name: GNOME Terminal
-# source: https://help.gnome.org/users/gnome-terminal/stable/adv-keyboard-shortcuts.html.en
+# source: https://help.gnome.org/users/gnome-terminal/stable/adv-keyboard-shortcuts.html.en ; https://gitlab.gnome.org/GNOME/gnome-terminal/-/blob/3.56.3/src/org.gnome.Terminal.gschema.xml ; https://gitlab.gnome.org/GNOME/vte/-/blob/0.80.0/src/vte.cc
 ## tabs
 Ctrl+Shift+T|new tab
-Ctrl+Shift+N|new window
 Ctrl+Shift+W|close tab
-Ctrl+Shift+Q|close window
 Ctrl+PgUp / PgDn|prev / next tab
 Ctrl+Shift+PgUp/Dn|move tab left / right
-Alt+1..9|go to tab 1–9 (Alt+0: 10)
+Alt+1..9 / Alt+0|go to tab 1–9 / 10
 ## text
 Ctrl+Shift+C / V|copy / paste
+Shift+Insert|paste primary selection
 Ctrl+Shift+F|find
 Ctrl+Shift+G / H|find next / previous
+Ctrl+Shift+J|clear find highlight
 Shift+PgUp / PgDn|scroll page up / down
 Shift+Home / End|scroll to top / bottom
+Ctrl+Shift+↑ / ↓|scroll one line
+Ctrl+Shift+← / →|prev / next prompt
 ## app
+Ctrl+Shift+N|new window
+Ctrl+Shift+Q|close window
 Ctrl++ / Ctrl+-|zoom in / out
 Ctrl+0|normal size
 F11|fullscreen

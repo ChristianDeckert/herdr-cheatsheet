@@ -1,19 +1,24 @@
 # name: Alacritty
-# source: https://alacritty.org/config-alacritty-bindings.html
+# source: https://alacritty.org/config-alacritty-bindings.html ; https://github.com/alacritty/alacritty/blob/v0.17.0/alacritty/src/config/bindings.rs ; https://github.com/alacritty/alacritty/blob/v0.17.0/alacritty/src/config/ui_config.rs
 ## tabs
 ⌘N|new window
-⌘T|new tab (native)
+⌘T|new tab
 ⌘⇧[ ⌘⇧]|prev / next tab
 ⌘1 … ⌘9|go to tab (⌘9 = last)
+⌘W|close window / tab
 ## text
 ⌘C ⌘V|copy / paste
 ⌘F ⌘B|search forward / back
+↩ ⇧↩|search: next / prev match
+⎋|search: cancel
 ⌘K|clear screen & scrollback
 ⇧PgUp ⇧PgDn|scroll page up / down
 ⇧Home ⇧End|scroll to top / bottom
+⌃⇧O|URL hints (type label to open)
 ⌃⇧Space|toggle vi mode
-v y|vi: select / copy
-/ ?|vi: search fwd / back
+v ⇧V ⌃V|vi: select char / line / block
+y|vi: copy selection
+i ⌃C|vi: exit vi mode
 ## app
-⌘+ ⌘- ⌘0|font size
+⌘+ ⌘- ⌘0|font bigger / smaller / reset
 ⌘⌃F|toggle fullscreen

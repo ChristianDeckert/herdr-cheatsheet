@@ -1,0 +1,22 @@
+# name: foot
+# source: https://codeberg.org/dnkl/foot/src/branch/master/doc/foot.1.scd ; https://codeberg.org/dnkl/foot/src/branch/master/doc/foot.ini.5.scd ; https://codeberg.org/dnkl/foot/src/branch/master/foot.ini
+## text
+Ctrl+Shift+C / V|copy / paste
+select / mid-click|copy / paste primary selection
+Shift+Insert|paste primary selection
+Shift+drag|select in mouse-mode apps
+Ctrl+drag|block selection
+Shift+PgUp / PgDn|scroll page up / down
+Ctrl+Shift+R|search scrollback
+Ctrl+R / S|search: prev / next match
+Ctrl+W|search: extend to next word
+Shift+←→↑↓|search: extend selection
+Enter / Esc|search: accept / cancel
+Ctrl+Shift+O|URL mode (type label to open)
+t|URL mode: toggle URL in labels
+Ctrl+Shift+Z / X|jump to prev / next prompt
+Ctrl+Shift+U|unicode input
+## app
+Ctrl++ / - / 0|font bigger / smaller / reset
+Ctrl+wheel|font bigger / smaller
+Ctrl+Shift+N|new window (same dir via OSC 7)

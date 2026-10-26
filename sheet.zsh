@@ -10,9 +10,10 @@ source "$ROOT/lib/update.zsh"
 CONFIG=$HERDR_CONFIG
 LABEL="cheatsheet"
 zmodload -F zsh/stat b:zstat
+zmodload zsh/datetime
 
 typeset -A KEYS ALIAS
-typeset -a OUT ACT PLAIN
+typeset -a OUT ACT PLAIN FIT JUST_RECIPES JUST_DOCS
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
 # Sheet mode: SGR mouse reporting on, auto-wrap off and color-scheme reports on. Without wrap, a line
 # wider than the pane is cut at the edge instead of taking a second screen row, which would shift every
@@ -63,24 +64,33 @@ query_theme() {
 }
 
 # Control is ⌃ on macOS, like its menus show it; elsewhere the usual ^.
-[[ $(cs_os) == macos ]] && CTRL_SYM="⌃" || CTRL_SYM="^"
+[[ $CS_OS == macos ]] && CTRL_SYM="⌃" || CTRL_SYM="^"
 
-fmt_key() { # "prefix+alt+r" -> "⌃B ⌥r"
+fmt_key() { # "prefix+alt+r" -> REPLY="⌃B ⌥r"
   local k=$1
   k=${k//prefix+/$PREFIX }; k=${k//alt+/⌥}; k=${k//shift+/⇧}; k=${k//cmd+/⌘}; k=${k//super+/⌘}
   while [[ $k =~ 'ctrl\+(.)' ]]; do k=${k/ctrl+$match[1]/$CTRL_SYM${(U)match[1]}}; done
-  print -r -- $k
+  REPLY=$k
 }
 
+# herdr's defaults are read once; the user's keys again only when config.toml changes.
+typeset -A DEFAULT_KEYS
+KEYS_STAMP=""
 load_herdr_keys() {
-  KEYS=()
   local name val
-  # defaults are the commented `# name = "value"` lines in the [keys] section
-  "$H" --default-config | awk '/^\[keys\]/{k=1;next} /^\[/{k=0} k' |
-    sed -nE 's/^# ([a-z_]+) = "([^"]*)".*/\1 \2/p' | while read -r name val; do KEYS[$name]=$val; done
+  local -a m
+  zstat -A m +mtime "$CONFIG" 2>/dev/null
+  [[ "x$m[1]" == $KEYS_STAMP ]] && return
+  KEYS_STAMP="x$m[1]"
+  if (( ! ${#DEFAULT_KEYS} )); then
+    # defaults are the commented `# name = "value"` lines in the [keys] section
+    "$H" --default-config | awk '/^\[keys\]/{k=1;next} /^\[/{k=0} k' |
+      sed -nE 's/^# ([a-z_]+) = "([^"]*)".*/\1 \2/p' | while read -r name val; do DEFAULT_KEYS[$name]=$val; done
+  fi
+  KEYS=("${(@kv)DEFAULT_KEYS}")
   awk '/^\[keys\]/{k=1;next} /^\[/{k=0} k' "$CONFIG" 2>/dev/null |
     sed -nE 's/^([a-z_]+) *= *"([^"]*)".*/\1 \2/p' | while read -r name val; do KEYS[$name]=$val; done
-  PREFIX=$(fmt_key "${KEYS[prefix]:-ctrl+b}")
+  fmt_key "${KEYS[prefix]:-ctrl+b}"; PREFIX=$REPLY
 }
 
 row() { # key desc color [action]
@@ -89,13 +99,12 @@ row() { # key desc color [action]
   (( dw < 8 )) && dw=8
   [[ -n "$4" ]] && mark="▸"
   key=${1[1,kw]} desc=${desc[1,dw]}
-  PLAIN+=("$(printf " %s %-${kw}s %s" "$mark" "$key" "$desc")")
-  if [[ -n "$4" ]]; then
-    OUT+=("$(printf " ${B}%s${R} %s%-${kw}s%s %s" "$mark" "$3" "$key" "$R" "$desc")")
-  else
-    OUT+=("$(printf "   ${D}%-${kw}s %s${R}" "$key" "$desc")")
+  local plain out
+  printf -v plain " %s %-${kw}s %s" "$mark" "$key" "$desc"
+  if [[ -n "$4" ]]; then printf -v out " ${B}%s${R} %s%-${kw}s%s %s" "$mark" "$3" "$key" "$R" "$desc"
+  else printf -v out "   ${D}%-${kw}s %s${R}" "$key" "$desc"
   fi
-  ACT+=("$4")
+  OUT+=("$out") PLAIN+=("$plain") ACT+=("$4")
 }
 
 line() { OUT+=("$1"); PLAIN+=(""); ACT+=("") }
@@ -111,40 +120,128 @@ read_collapsed() {
   [[ -f $COLLAPSED_FILE ]] && COLLAPSED=(${(f)"$(<$COLLAPSED_FILE)"})
 }
 
-set_collapsed() { # id on|off
-  read_collapsed
-  COLLAPSED=(${COLLAPSED:#$1})
-  [[ $2 == on ]] && COLLAPSED+=("$1")
-  print -rl -- $COLLAPSED > "$COLLAPSED_FILE.tmp" && mv "$COLLAPSED_FILE.tmp" "$COLLAPSED_FILE"
+# Adds or removes an id in a shared list file (one id per line), atomically.
+list_set() { # file id on|off
+  local -a ids
+  [[ -f $1 ]] && ids=(${(f)"$(<$1)"})
+  ids=(${ids:#$2})
+  [[ $3 == on ]] && ids+=("$2")
+  print -rl -- $ids > "$1.tmp" && mv "$1.tmp" "$1"
 }
 
+set_collapsed() { list_set "$COLLAPSED_FILE" "$1" "$2" }
+
+# The hidden list is the one section that starts collapsed: its open state is stored as hidden:open.
 toggle_section() { # id
   read_collapsed
-  if (( ${COLLAPSED[(Ie)$1]} )); then set_collapsed "$1" off; else set_collapsed "$1" on; fi
+  if [[ $1 == hidden ]]; then
+    if (( ${COLLAPSED[(Ie)hidden:open]} )); then set_collapsed hidden:open off; else set_collapsed hidden:open on; fi
+  elif (( ${COLLAPSED[(Ie)$1]} )); then set_collapsed "$1" off
+  else set_collapsed "$1" on
+  fi
 }
 
-# A section heading with ▾ (open) or ▸ (collapsed); clicking it toggles the section. Returns false for a
-# collapsed section, so the caller stops after its heading.
+# Hidden sections and tool groups, also shared by all panels; the hidden list at the bottom shows them.
+HIDDEN_FILE="$CS_STATE_DIR/hidden"
+typeset -a HIDDEN
+read_hidden() {
+  HIDDEN=()
+  [[ -f $HIDDEN_FILE ]] && HIDDEN=(${(f)"$(<$HIDDEN_FILE)"})
+}
+# Groups of the command lists can be tagged with the platforms they run on and the command they need
+# ("## pacman @linux ?pacman"). Groups unavailable here start out hidden; "+id" in the hidden file marks
+# one the user chose to show anyway.
+typeset -A UNAVAILABLE
+is_hidden() {
+  (( ${HIDDEN[(Ie)$1]} )) && return 0
+  [[ -n ${UNAVAILABLE[$1]} ]] && (( ! ${HIDDEN[(Ie)+$1]} ))
+}
+
+# Sets REPLY to why a tagged group isn't available here (wrong platform, command missing), or nothing.
+group_unavailable() { # tags...
+  local t os=$CS_OS need_os=0 os_ok=0
+  REPLY=""
+  for t; do
+    case $t in
+      @*) need_os=1; [[ ${t#@} == $os ]] && os_ok=1 ;;
+    esac
+  done
+  (( need_os && ! os_ok )) && { REPLY="not on $os"; return }
+  for t; do
+    [[ $t == \?* ]] && ! (( $+commands[${t#\?}] )) && { REPLY="${t#\?} not installed"; return }
+  done
+}
+
+# Records the unavailable groups of all command lists, so they count as hidden and show up in the hidden
+# list even while their section is collapsed.
+scan_unavailable() {
+  local name f l hdr grp
+  UNAVAILABLE=()
+  for name in tools devtools packages; do
+    f=$(cs_cmd_file "$name")
+    [[ -n $f ]] || continue
+    while IFS= read -r l; do
+      [[ $l == "## "* ]] || continue
+      hdr=${l#"## "} grp=${hdr%% [@?]*}
+      group_unavailable ${=hdr#"$grp"}
+      [[ -n $REPLY ]] && UNAVAILABLE[$name/$grp]=$REPLY
+    done < "$f"
+  done
+}
+
+hide_item() { # id
+  list_set "$HIDDEN_FILE" "+$1" off
+  list_set "$HIDDEN_FILE" "$1" on
+}
+
+show_item() { # id
+  list_set "$HIDDEN_FILE" "$1" off
+  [[ -n ${UNAVAILABLE[$1]} ]] && list_set "$HIDDEN_FILE" "+$1" on
+}
+
+# A row's "hide" button: clicks from this screen column on run the hide action instead of the row's.
+typeset -A HIDE_AT HIDE_DO
+hide_button() { # id plain-length -> sets REPLY to the padding plus the button, or nothing if too narrow
+  local pad=$(( COLS - 1 - $2 - 4 ))
+  REPLY=""
+  (( pad < 1 )) && return
+  HIDE_AT[$(( ${#OUT} + 1 ))]=$(( $2 + pad + 1 )) HIDE_DO[$(( ${#OUT} + 1 ))]="hide:$1"
+  REPLY="${(l:pad:: :)}${D}hide${R}"
+}
+
+# A section heading with ▾ (open) or ▸ (collapsed); clicking it toggles the section, and its "hide"
+# button hides it. Returns false for a collapsed or hidden section, so the caller stops there.
 section() { # id title
   setopt local_options extended_glob
-  local mark="▾" open=0
-  (( ${COLLAPSED[(Ie)$1]} )) && { mark="▸"; open=1 }
+  is_hidden "$1" && return 1
+  local mark="▾" closed=0 plain btn=""
+  if [[ $1 == hidden ]]; then (( ${COLLAPSED[(Ie)hidden:open]} )) || closed=1
+  else (( ${COLLAPSED[(Ie)$1]} )) && closed=1
+  fi
+  (( closed )) && mark="▸"
   (( ${#OUT} )) && line ""
-  OUT+=("${D}$mark${R} ${B}$2${R}") PLAIN+=("$mark ${(S)2//$'\e'\[[0-9;]#m/}") ACT+=("section:$1")
-  return $open
+  plain="$mark ${(S)2//$'\e'\[[0-9;]#m/}"
+  [[ $1 != (panel|hidden) ]] && { hide_button "$1" ${#plain}; btn=$REPLY }
+  OUT+=("${D}$mark${R} ${B}$2${R}$btn") PLAIN+=("$plain") ACT+=("section:$1")
+  return $closed
 }
 
 # A group inside a section: a colored label and a dim rule to the panel edge.
-group() { # label color
-  local rule=$(( COLS - ${#1} - 3 ))
+group() { # label color [hide-id]
+  local rule=$(( COLS - ${#1} - 3 )) btn=""
+  if [[ -n $3 ]] && (( rule > 8 )); then
+    (( rule -= 5 ))
+    hide_button "$3" $(( ${#1} + 2 + rule ))
+    btn=$REPLY
+  fi
   (( rule < 1 )) && rule=1
-  line " $2$1$R ${D}${(l:rule::─:)}${R}"
+  line " $2$1$R ${D}${(l:rule::─:)}${R}$btn"
 }
 
 # Sections set PENDING_GROUP at a group marker; the label is printed before the group's first row, so a
 # group whose keys are all unbound doesn't show up at all.
-flush_group() { # color
-  [[ -n $PENDING_GROUP ]] && { group "$PENDING_GROUP" "$1"; PENDING_GROUP="" }
+flush_group() { # color [hide-id]
+  [[ -n $PENDING_GROUP ]] && { group "$PENDING_GROUP" "$1" "$2"; PENDING_GROUP="" }
 }
 
 # "ANSI Shadow" letters with single-width strokes: █ is the letter face, the box-drawing lines are its
@@ -221,54 +318,60 @@ typeset -A AGENT_COLOR=(blocked $'\e[31m' done $'\e[32m' working $'\e[33m' idle 
 
 # Agent panes across all workspaces, most urgent first; clicking one jumps there.
 render_agents() {
-  [[ $CHEATSHEET_AGENTS == off ]] && return
-  local agents
-  agents=$(print -r -- "$ALLPANES" | jq -c --arg m "$CHEATSHEET_AGENTS" '
+  [[ $CHEATSHEET_AGENTS == off || -z $AGENTS_FP ]] && return
+  # one jq: the number of agents to show, the per-status counts, then one row per agent
+  local -a r=("${(@f)$(print -r -- "$ALLPANES" | jq -r --arg m "$CHEATSHEET_AGENTS" \
+      --argjson max "${CHEATSHEET_AGENTS_MAX:-8}" '
     [.result.panes[] | select((.agent // "") != "")
      | select($m != "attention" or .agent_status == "blocked" or .agent_status == "done")
      | . + {rank: ({blocked: 0, done: 1, working: 2, idle: 3}[.agent_status] // 4)}]
-    | sort_by(.rank, .workspace_id)' 2>/dev/null)
-  local n=$(print -r -- "${agents:-[]}" | jq length)
+    | sort_by(.rank, .workspace_id)
+    | length, (group_by(.agent_status) | map("\(length) \(.[0].agent_status)") | join(" · ")),
+      (.[:$max][] | [.pane_id, .agent_status, .tab_id, .workspace_id, (.terminal_title_stripped // .agent)] | @tsv)' 2>/dev/null)}")
+  local n=${r[1]:-0} max=${CHEATSHEET_AGENTS_MAX:-8} id lbl l desc
   (( n )) || return
   typeset -A wsl
-  local id lbl p st tab ws title desc max=${CHEATSHEET_AGENTS_MAX:-8} counts
   "$H" workspace list 2>/dev/null | jq -r '.result.workspaces[] | "\(.workspace_id)\t\(.label)"' |
     while IFS=$'\t' read -r id lbl; do wsl[$id]=$lbl; done
-  counts=$(print -r -- "$agents" | jq -r 'group_by(.agent_status) | map("\(length) \(.[0].agent_status)") | join(" · ")')
-  section agents "agents ${D}($counts)${R}" || return
-  print -r -- "$agents" | jq -r --argjson max "$max" \
-    '.[:$max][] | [.pane_id, .agent_status, .tab_id, .workspace_id, (.terminal_title_stripped // .agent)] | @tsv' |
-    while IFS=$'\t' read -r p st tab ws title; do
-      desc="${wsl[$ws]:-$ws} · $title"
-      [[ $tab == $HERDR_TAB_ID ]] && desc+=" (here)"
-      KW=10 row "${AGENT_LABEL[$st]:-· $st}" "$desc" "${AGENT_COLOR[$st]:-$D}" "agent:$p"
-    done
+  section agents "agents ${D}($r[2])${R}" || return
+  local -a f
+  for l in "${(@)r[3,-1]}"; do
+    f=("${(@ps:\t:)l}")
+    desc="${wsl[$f[4]]:-$f[4]} · $f[5]"
+    [[ $f[3] == $HERDR_TAB_ID ]] && desc+=" (here)"
+    KW=10 row "${AGENT_LABEL[$f[2]]:-· $f[2]}" "$desc" "${AGENT_COLOR[$f[2]]:-$D}" "agent:$f[1]"
+  done
   (( n > max )) && line "   ${D}+$(( n - max )) more${R}"
 }
 
-# Sets DIR (project dir to show) and TPANE (main pane in this tab that actions target).
+# Sets DIR (project dir to show), TPANE (main pane in this tab that actions target), TAB_PANES (this
+# tab's panes besides the panels) and AGENTS_FP (what the agents section shows), from one pane list.
 locate() {
-  local all p d
+  local all
+  local -a r
   all=$("$H" pane list 2>/dev/null) || return
   ALLPANES=$all
-  read -r p d < <(print -r -- "$all" | cs_jq -r --arg w "$HERDR_WORKSPACE_ID" --arg s "$HERDR_PANE_ID" \
-    "$CS_SHEET_JQ"' .result.panes[] | select(.focused and .workspace_id == $w and .pane_id != $s and (sheet | not))
-     | "\(.pane_id) \(.foreground_cwd // .cwd)"' | head -1)
-  [[ -n "$d" ]] && { DIR=$d; LAST_FOCUSED=$p }
   # actions need a pane in this tab: the last focused one if it lives here, else the first non-sheet pane
-  TPANE=$(print -r -- "$all" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" --arg l "$LAST_FOCUSED" \
-    "$CS_SHEET_JQ"' [.result.panes[] | select(.tab_id == $t and .pane_id != $s and (sheet | not))]
-     | (map(select(.pane_id == $l)) + .) | first | .pane_id // empty')
-  if [[ -z "$DIR" ]]; then
-    DIR=$(print -r -- "$all" | jq -r --arg p "$TPANE" '.result.panes[] | select(.pane_id == $p) | .foreground_cwd // .cwd' | head -1)
-  fi
-  DIR=${DIR:-$PWD}
+  r=("${(@f)$(print -r -- "$all" | cs_jq -r --arg w "$HERDR_WORKSPACE_ID" --arg t "$HERDR_TAB_ID" \
+      --arg s "$HERDR_PANE_ID" --arg l "$LAST_FOCUSED" "$CS_SHEET_JQ"'
+    def dir: .foreground_cwd // .cwd // "";
+    .result.panes as $all | [$all[] | select(.pane_id != $s and (sheet | not))] as $p
+    | ([$p[] | select(.focused and .workspace_id == $w)][0]) as $f
+    | [$p[] | select(.tab_id == $t)] as $tab
+    | ([$tab[] | select(.pane_id == ($f.pane_id // $l))] + $tab | first) as $tp
+    | ($f.pane_id // ""), ($f | if . then dir else "" end), ($tp.pane_id // ""), ($tp | if . then dir else "" end),
+      ([$all[] | select((.agent // "") != "") | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")),
+      ([$tab[].pane_id] | join(" "))')}")
+  [[ -n $r[2] ]] && { DIR=$r[2]; LAST_FOCUSED=$r[1] }
+  TPANE=$r[3] AGENTS_FP=$r[5] TAB_PANES=(${=r[6]})
+  DIR=${DIR:-${r[4]:-$PWD}}
 }
 
-find_up() { # dir name... -> first match walking up
-  local d=$1; shift
+find_up() { # dir name... -> REPLY: first match walking up
+  local d=$1 n; shift
+  REPLY=""
   while :; do
-    for n in "$@"; do [[ -f "$d/$n" ]] && { print -r -- "$d/$n"; return }; done
+    for n in "$@"; do [[ -f "$d/$n" ]] && { REPLY="$d/$n"; return }; done
     [[ "$d" == / ]] && return 1
     d=${d:h}
   done
@@ -276,22 +379,32 @@ find_up() { # dir name... -> first match walking up
 
 # Only shown for a project with a justfile; it appears and disappears as the focus moves between projects.
 render_just() {
-  local jf=$(find_up "$1" justfile Justfile .justfile) a c
+  local jf a c
+  find_up "$1" justfile Justfile .justfile; jf=$REPLY
   [[ -n "$jf" ]] || return
   section just "just — ${jf:h:t}" || return
   (( $+commands[just] )) || { line " ${D}install just to list recipes${R}"; return }
-  ALIAS=()
-  local af="${jf:h}/$CHEATSHEET_ALIAS_FILE"
-  [[ -n "$CHEATSHEET_ALIAS_FILE" && -f "$af" ]] && sed -nE "s/^alias ([^=]+)='just ([^' ]+)'.*/\1 \2/p" "$af" |
-    while read -r a c; do ALIAS[$c]=$a; done
-  just --justfile "$jf" --list --list-heading '' --color never 2>/dev/null | while IFS= read -r l; do
-    local -a sig=(${=${l%%\#*}})
-    local doc=""
-    [[ $l == *\#* ]] && doc=${${l#*\#}# }
-    (( ${#sig} )) || continue
-    doc=${doc:-${sig[2,-1]}}
-    [[ -n "${ALIAS[$sig[1]]}" ]] && doc="[${ALIAS[$sig[1]]}] $doc"
-    row "$sig[1]" "$doc" "$K" "run:just $sig[1]"
+  local af="${jf:h}/$CHEATSHEET_ALIAS_FILE" i
+  local -a m1 m2
+  zstat -A m1 +mtime "$jf" 2>/dev/null
+  [[ -n "$CHEATSHEET_ALIAS_FILE" ]] && zstat -A m2 +mtime "$af" 2>/dev/null
+  # just and the alias file are read again only when one of the two files changes
+  if [[ "$jf|$m1[1]|$m2[1]" != $JUST_KEY ]]; then
+    JUST_KEY="$jf|$m1[1]|$m2[1]" JUST_RECIPES=() JUST_DOCS=() ALIAS=()
+    [[ -n "$CHEATSHEET_ALIAS_FILE" && -f "$af" ]] && sed -nE "s/^alias ([^=]+)='just ([^' ]+)'.*/\1 \2/p" "$af" |
+      while read -r a c; do ALIAS[$c]=$a; done
+    just --justfile "$jf" --list --list-heading '' --color never 2>/dev/null | while IFS= read -r l; do
+      local -a sig=(${=${l%%\#*}})
+      local doc=""
+      [[ $l == *\#* ]] && doc=${${l#*\#}# }
+      (( ${#sig} )) || continue
+      doc=${doc:-${sig[2,-1]}}
+      [[ -n "${ALIAS[$sig[1]]}" ]] && doc="[${ALIAS[$sig[1]]}] $doc"
+      JUST_RECIPES+=("$sig[1]") JUST_DOCS+=("$doc")
+    done
+  fi
+  for (( i = 1; i <= ${#JUST_RECIPES}; i++ )); do
+    row "$JUST_RECIPES[i]" "$JUST_DOCS[i]" "$K" "run:just $JUST_RECIPES[i]"
   done
 }
 
@@ -350,12 +463,14 @@ render_herdr() {
     if [[ $name == focus_pane_hjkl ]]; then
       [[ -n "${KEYS[focus_pane_left]}" ]] || continue
       flush_group "$G"
-      row "$(fmt_key "${KEYS[focus_pane_left]}")…${KEYS[focus_pane_right]##*+}" "$desc" "$Y"
+      fmt_key "${KEYS[focus_pane_left]}"
+      row "$REPLY…${KEYS[focus_pane_right]##*+}" "$desc" "$Y"
       continue
     fi
     [[ -n "${KEYS[$name]}" ]] || continue
     flush_group "$G"
-    row "$(fmt_key "${KEYS[$name]}")" "$desc" "$K" "$act"
+    fmt_key "${KEYS[$name]}"
+    row "$REPLY" "$desc" "$K" "$act"
   done
   PENDING_GROUP="your keys"
   # custom [[keys.command]] bindings: key, description, type, command
@@ -376,8 +491,16 @@ render_herdr() {
         *) act="" ;;
       esac
       flush_group "$G"
-      row "$(fmt_key "$k")" "${d:-custom command}" "$K" "$act"
+      fmt_key "$k"
+      row "$REPLY" "${d:-custom command}" "$K" "$act"
     done
+}
+
+# REPLY: the name a key list gives itself in its "# name:" line.
+list_name() { # file
+  setopt local_options extended_glob
+  local -a l=(${(M)${(f)"$(<$1)"}:#\# name:*})
+  REPLY=${${l[1]#\# name:}##[[:space:]]#}
 }
 
 # Sets TERMKEYS (shortcut list to show) and TERMHEAD (its heading) for the detected terminal.
@@ -392,7 +515,7 @@ pick_terminal() {
   [[ "$id" == off ]] && return
   TERMKEYS=$(cs_terminal_file "$id")
   [[ -n "$TERMKEYS" ]] || return
-  name=$(sed -n 's/^# name: *//p' "$TERMKEYS" | head -1)
+  list_name "$TERMKEYS"; name=$REPLY
   if [[ "${CHEATSHEET_TERMINAL:-auto}" != auto ]]; then note=configured
   elif [[ "$id" == generic ]]; then note="terminal not recognized"; TERMHINT="set CHEATSHEET_TERMINAL in config.zsh"
   else note=detected
@@ -551,26 +674,36 @@ send_keys_to() { # pane;steps
   api pane.focus "{\"pane_id\":\"$pane\"}"
 }
 
-# Ready-made commands (ffmpeg, compression), always shown: a description row with the command dim
+# Ready-made commands (tools: ffmpeg, compression; devtools: iOS, Android, languages, docker, git): a
+# description row with the command dim
 # below it, its {placeholders} in the accent color. A click on either types the command at a shell
 # prompt in this tab, without Enter.
-render_tools() {
+render_cmdfile() { # name (tools, devtools, packages)
   setopt local_options extended_glob
   [[ $CHEATSHEET_TOOLS == off ]] && return
-  local f=$(cs_tools_file) l cmd desc PENDING_GROUP=""
+  local f=$(cs_cmd_file "$1") l cmd desc grp hdr PENDING_GROUP=""
+  local -A body
   [[ -n $f ]] || return
-  section tools "tools" || return
+  section "$1" "$1" || return
+  # groups are listed alphabetically; the commands inside a group keep the file's order
   while IFS= read -r l; do
     case $l in
-      "## "*) PENDING_GROUP=${l#"## "} ;;
+      "## "*) hdr=${l#"## "} grp=${hdr%% [@?]*} ;;
       "#"*|"") ;;
-      *)
-        cmd=${l%%|*} desc=${${l#*|}:#$l}
-        flush_group "$G"
-        OUT+=(" ${B}▸${R} $K${desc:-$cmd}$R") PLAIN+=(" ▸ ${desc:-$cmd}") ACT+=("tool:$cmd")
-        OUT+=("     $D${cmd//(#m)\{[a-z_]##\}/$R$K$MATCH$R$D}$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd") ;;
+      *) body[$grp]+=$l$'\n' ;;
     esac
   done < "$f"
+  for grp in ${(oi)${(k)body}}; do
+    is_hidden "$1/$grp" && continue
+    PENDING_GROUP=$grp
+    for l in "${(@f)body[$grp]%$'\n'}"; do
+      # split at the last |: commands may contain pipes, descriptions don't
+      cmd=${l%|*} desc=${${l##*|}:#$l}
+      flush_group "$G" "$1/$grp"
+      OUT+=(" ${B}▸${R} $K${desc:-$cmd}$R") PLAIN+=(" ▸ ${desc:-$cmd}") ACT+=("tool:$cmd")
+      OUT+=("     $D${cmd//(#m)\{[a-z_]##\}/$R$K$MATCH$R$D}$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd")
+    done
+  done
 }
 
 # A pane of this tab at a shell prompt, the main pane first. At the prompt, the shell itself is the
@@ -578,7 +711,7 @@ render_tools() {
 # top), and every foreground process is a shell (the editor tab's vi shares its script's group).
 shell_pane() {
   local p
-  local -a panes=($(tab_panes))
+  local -a panes=($TAB_PANES)
   (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
   for p in $panes; do
     "$H" pane process-info --pane "$p" 2>/dev/null | jq -e '.result.process_info as $i
@@ -632,30 +765,46 @@ typeset -A APP_PANE
 
 # Sets APPS to the known apps in the foreground of this tab's panes, the focused pane's first, and
 # APP_PANE to the pane each runs in. herdr lists a pane's foreground processes but leaves out those it
-# can't inspect, such as macOS's top, which runs as root; ps adds them by the foreground process group.
+# can't inspect, such as macOS's top, which runs as root; then it reports no foreground group either,
+# and the terminal's foreground group comes from the shell (tpgid). ps adds that group's processes.
+# Listing all processes is slow, so it only runs for a foreground group that isn't the pane's shell and
+# in which herdr's list has no known app, once per group (PS_SEEN).
+typeset -A PS_SEEN
 detect_apps() {
   setopt local_options extended_glob
   APPS=() APP_PANE=()
   [[ $CHEATSHEET_APPS == off ]] && return
-  local p n id info pg a0 a1 psout=$(ps -axo pgid=,args= 2>/dev/null)
-  local -a panes=($(tab_panes))
+  local p id pg l
+  local -a lines found
+  local -A seen
+  local -a panes=($TAB_PANES)
   (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
   for p in $panes; do
-    info=$("$H" pane process-info --pane "$p" 2>/dev/null)
-    pg=$(print -r -- "$info" | jq -r '.result.process_info.foreground_process_group_id // empty' 2>/dev/null)
-    { print -r -- "$info" | jq -r '.result.process_info.foreground_processes[]? | [.argv0, (.argv[1] // "")] | @tsv' 2>/dev/null
-      [[ -n $pg ]] && print -r -- "$psout" | awk -v g="$pg" '$1 == g { print $2 "\t" $3 }'
-    } | while IFS=$'\t' read -r a0 a1; do
-      n=${a0:t}
-      # macOS's Python reports itself as "Python"
-      (( ${INTERPRETERS[(Ie)${(L)n%%[0-9.]#}]} )) && n=${a1:t}
-      # npm-installed CLIs show up as codex.js or as a platform build like codex-aarch64-apple-darwin
-      id=${APP_OF[$n]:-${APP_OF[${${n%.js}%%-*}]}}
-      # macOS ships UW Pico as /usr/bin/nano; GNU nano's keys don't apply to it
-      [[ $id == nano && ${commands[nano]:A:t} == pico ]] && continue
-      [[ -n $id ]] && (( ! ${APPS[(Ie)$id]} )) && { APPS+=($id); APP_PANE[$id]=$p }
+    lines=("${(@f)$("$H" pane process-info --pane "$p" 2>/dev/null | jq -r '.result.process_info
+      | ((.foreground_process_group_id // "") | tostring), ((.shell_pid // "") | tostring),
+        (.foreground_processes[]? | "\(.argv0)\t\(.argv[1] // "")")' 2>/dev/null)}")
+    pg=$lines[1]
+    [[ -z $pg && -n $lines[2] ]] && pg=${$(ps -o tpgid= -p "$lines[2]" 2>/dev/null)// /}
+    found=()
+    for l in "${(@)lines[3,-1]}"; do app_of "${l%%$'\t'*}" "${l#*$'\t'}" && found+=($REPLY); done
+    if (( ! ${#found} )) && [[ -n $pg && $pg != $lines[2] ]]; then
+      if [[ -z ${PS_SEEN[$p:$pg]+x} ]]; then
+        PS_SEEN[$p:$pg]=""
+        ps -axo pgid=,args= 2>/dev/null | while read -r l; do
+          [[ ${l%% *} == $pg ]] || continue
+          l=${l#* }
+          app_of "${l%% *}" "${${l#* }%% *}" && PS_SEEN[$p:$pg]+="$REPLY "
+        done
+      fi
+      found=(${=PS_SEEN[$p:$pg]})
+    fi
+    seen[$p:$pg]=1
+    for id in $found; do
+      (( ${APPS[(Ie)$id]} )) || { APPS+=($id); APP_PANE[$id]=$p }
     done
   done
+  # forget the groups that ended, so a reused group id is looked at again
+  for l in ${(k)PS_SEEN}; do [[ -n ${seen[$l]} ]] || unset "PS_SEEN[$l]"; done
   # an app that just started (or that a new panel finds) gets its section opened, even if it was
   # collapsed during an earlier run
   read_collapsed
@@ -665,19 +814,50 @@ detect_apps() {
   PREV_APPS=($APPS)
 }
 
+# REPLY: the known app a foreground process is, from its argv[0] and argv[1].
+app_of() { # argv0 argv1
+  setopt local_options extended_glob
+  local n=${1:t}
+  # macOS's Python reports itself as "Python"; scripts run under an interpreter go by the script's name
+  (( ${INTERPRETERS[(Ie)${(L)n%%[0-9.]#}]} )) && n=${2:t}
+  # npm-installed CLIs show up as codex.js or as a platform build like codex-aarch64-apple-darwin
+  REPLY=${APP_OF[$n]:-${APP_OF[${${n%.js}%%-*}]}}
+  # macOS ships UW Pico as /usr/bin/nano; GNU nano's keys don't apply to it
+  [[ $REPLY == nano && ${commands[nano]:A:t} == pico ]] && REPLY=""
+  [[ -n $REPLY ]]
+}
+
 render_apps() {
   local id f
   for id in $APPS; do
     f=$(cs_app_file "$id")
     [[ -n $f ]] || continue
-    render_keyfile "$f" "$(sed -n 's/^# name: *//p' "$f" | head -1) ${D}(running)${R}" "app:$id" "$id"
+    list_name "$f"
+    render_keyfile "$f" "$REPLY ${D}(running)${R}" "app:$id" "$id"
   done
 }
 
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
+# The file search comes first and the running apps' sections next; the other sections follow in the
+# alphabetical order of their headings, where the terminal's heading is the terminal's name.
+SECTION_ORDER=(agents:agents devtools:devtools herdr:herdr just:just packages:packages panel:panel
+  tools:tools)
+render_section() { # id dir
+  case $1 in
+    agents) render_agents ;;
+    herdr) render_herdr ;;
+    just) render_just "$2" ;;
+    panel) render_panel ;;
+    terminal) render_terminal ;;
+    *) render_cmdfile "$1" ;;
+  esac
+}
+
 build() {
-  OUT=() ACT=() PLAIN=()
+  OUT=() ACT=() PLAIN=() FIT=() HIDE_AT=() HIDE_DO=()
   read_collapsed
+  read_hidden
+  scan_unavailable
   apply_palette
   sync_label
   if (( SEARCH )); then
@@ -690,12 +870,9 @@ build() {
   render_update
   render_search
   render_apps
-  render_just "$1"
-  render_herdr
-  render_tools
-  render_terminal
-  render_agents
-  render_panel
+  local s order=($SECTION_ORDER "${(L)TERMHEAD%% *}:terminal")
+  for s in ${(oi)order}; do render_section ${s#*:} "$1"; done
+  render_hidden
   render_update_status
 }
 
@@ -769,7 +946,7 @@ box_row() { # line action
 render_search() {
   if (( ! SEARCH )); then
     local bound=$(bound_key "$CS_PLUGIN_ID.search") key="/"
-    [[ -n $bound ]] && key=$(fmt_key "$bound")
+    [[ -n $bound ]] && { fmt_key "$bound"; key=$REPLY }
     section files "files" || return
     search_box "search files…" "$key" "files:search"
     render_editor
@@ -852,7 +1029,7 @@ editor_candidates() {
     C_NOTE+=("${${${EDITOR_TABLE[i+2]}:#terminal}/manager/file manager}")
   done
   cmd_exists vi && { C_NAME+=(vi) C_CMD+=(vi) C_NOTE+=(system) }
-  [[ $(cs_os) == macos ]] && { C_NAME+=("default app") C_CMD+=(open) C_NOTE+=("system window") }
+  [[ $CS_OS == macos ]] && { C_NAME+=("default app") C_CMD+=(open) C_NOTE+=("system window") }
 }
 typeset -a C_NAME C_CMD C_NOTE
 
@@ -956,6 +1133,27 @@ open_selected() {
   open_file "$RESULTS[$SEL]" && stop_search
 }
 
+# Everything hidden with a "hide" button, collapsed until opened; a click shows the item again.
+render_hidden() {
+  local id label f
+  local -a ids=(${HIDDEN:#+*})
+  for id in ${(ok)UNAVAILABLE}; do is_hidden "$id" && (( ! ${ids[(Ie)$id]} )) && ids+=("$id"); done
+  (( ${#ids} )) || return
+  section hidden "hidden ${D}(${#ids})${R}" || return
+  for id in $ids; do
+    case $id in
+      app:*)
+        f=$(cs_app_file "${id#app:}")
+        REPLY=""; [[ -n $f ]] && list_name "$f"
+        label="${REPLY:-${id#app:}} keys" ;;
+      */*) label="${id%%/*} › ${id#*/}" ;;
+      *) label=$id ;;
+    esac
+    [[ -n ${UNAVAILABLE[$id]} ]] && label+=" ${D}(${UNAVAILABLE[$id]})${R}"
+    row "show" "$label" "$K" "unhide:$id"
+  done
+}
+
 # The panel's own controls, laid out like the other sections; r and q also work as keys.
 render_panel() {
   section panel "panel" || return
@@ -985,18 +1183,28 @@ fit() { # line
 
 # Prints the visible slice: screen row N shows OUT[SCROLL + N], which is what clicks map to.
 # When content continues above/below, the first/last row becomes a dim hint instead.
-paint() {
-  local vis=$(( LINES - 1 )) total=${#OUT}
+clamp_scroll() {
+  local vis=$(( LINES - 1 ))
   (( vis < 1 )) && vis=1
-  (( SCROLL > total - vis )) && SCROLL=$(( total - vis ))
+  (( SCROLL > ${#OUT} - vis )) && SCROLL=$(( ${#OUT} - vis ))
   (( SCROLL < 0 )) && SCROLL=0
-  local -a view=("${(@)OUT[SCROLL + 1, SCROLL + vis]}")
-  local i
-  for i in {1..${#view}}; do fit "$view[$i]"; view[$i]=$REPLY; done
+}
+
+# Rows are cut to the pane width once per build (FIT) and drawn over the previous screen, each row
+# erasing its own rest, so scrolling doesn't flash a cleared screen.
+paint() {
+  local vis=$(( LINES - 1 )) total=${#OUT} i j
+  (( vis < 1 )) && vis=1
+  clamp_scroll
+  local -a view=()
+  for (( i = SCROLL + 1; i <= total && i <= SCROLL + vis; i++ )); do
+    [[ -n $FIT[i] || -z $OUT[i] ]] || { fit "$OUT[i]"; FIT[i]=$REPLY }
+    view+=("$FIT[i]")
+  done
   VIS_ROWS=${#view} HINT_TOP=0 HINT_BOTTOM=0
   (( SCROLL > 0 )) && { view[1]=" ${D}↑ more${R}"; HINT_TOP=1 }
   (( SCROLL + vis < total )) && { view[-1]=" ${D}↓ more${R}"; HINT_BOTTOM=1 }
-  printf '\e]0;%s\a\e[H\e[2J%s' "$LABEL" "${(pj:\n:)view}"
+  printf '\e]0;%s\a\e[H%s\e[K\e[J' "$LABEL" "${(pj:\e[K\n:)view}"
 }
 
 # The sheet keeps the tty silent (no echo, byte-wise input) so mouse reports that arrive while it is
@@ -1098,12 +1306,6 @@ api() { # method params-json
   return 1
 }
 
-# Non-sheet panes of this tab, in herdr's order.
-tab_panes() {
-  print -r -- "$ALLPANES" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
-    "$CS_SHEET_JQ"' .result.panes[] | select(.tab_id == $t and .pane_id != $s and (sheet | not)) | .pane_id'
-}
-
 # Prints the item $1 steps away from $2 among the remaining arguments, wrapping around. Without a
 # current item, +1 gives the first and -1 the last.
 step() { # +1|-1 current items...
@@ -1116,14 +1318,14 @@ step() { # +1|-1 current items...
 
 pane_neighbor() { # +1 | -1
   local next
-  next=$(step $1 "$TPANE" $(tab_panes)) || return
+  next=$(step $1 "$TPANE" $TAB_PANES) || return
   api pane.focus "{\"pane_id\":\"$next\"}"
 }
 
 # herdr closes a tab together with its last pane; the sheet doesn't count, so do the same.
 close_pane() {
   [[ -n "$TPANE" ]] || return
-  local -a ps=($(tab_panes))
+  local -a ps=($TAB_PANES)
   if (( ${#ps} <= 1 )); then herdr_do tab close "$HERDR_TAB_ID"
   else herdr_do pane close "$TPANE"
   fi
@@ -1192,11 +1394,13 @@ execute() { # action
     send:*) send_keys_to "${a#send:}" ;;
     tool:*) type_tool "${a#tool:}" ;;
     section:*) toggle_section "${a#section:}" ;;
-    editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )) ;;
-    editor:set:*) set_editor "${a#editor:set:}" ;;
+    hide:*) hide_item "${a#hide:}" ;;
+    unhide:*) show_item "${a#unhide:}" ;;
+    editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )); FP="" ;;
+    editor:set:*) set_editor "${a#editor:set:}"; FP="" ;;
     install:*) run_inline "${a#install:}" wait; rehash ;;
     open:*) open_file "${a#open:}" && stop_search ;;
-    panel:refresh) pick_terminal; query_theme; update_check force ;;
+    panel:refresh) FP=""; pick_terminal; query_theme; update_check force ;;
     panel:banner) toggle_banner ;;
     panel:colors) toggle_colors ;;
     panel:update) update_now ;;
@@ -1204,23 +1408,35 @@ execute() { # action
   esac
 }
 
-click() { # screen row
+click() { # screen row, column
   (( $1 == 1 && HINT_TOP || $1 == VIS_ROWS && HINT_BOTTOM )) && return
   local i=$(( SCROLL + $1 ))
   local a=${ACT[$i]}
+  # a row with a "hide" button acts on it from the button's column on
+  [[ -n ${HIDE_AT[$i]} ]] && (( $2 >= HIDE_AT[$i] )) && a=${HIDE_DO[$i]}
   [[ -n "$a" ]] || return
   printf '\e[%d;1H\e[7m%s\e[0m' "$1" "${PLAIN[$i]}"
-  drain 0.15   # swallows the button-release report that follows the press
-  FP=""
+  drain 0.08   # swallows the button-release report that follows the press
   execute "$a"
+  # typing a command, sending keys and herdr actions don't change the panel itself: herdr's side
+  # shows up with the next poll, until then the row just loses its highlight
+  NEED_POLL=1
+  [[ $a == (tool|send|agent|herdr|bg):* ]] || FP=""
+  paint
 }
 
-scroll_by() { (( $1 )) || return; SCROLL=$(( SCROLL + $1 )); paint }
+scroll_by() {
+  (( $1 )) || return
+  local old=$SCROLL
+  SCROLL=$(( SCROLL + $1 ))
+  clamp_scroll
+  (( SCROLL != old )) && paint
+}
 
 # Handles everything that is queued: keys, clicks and wheel bursts (the scroll is painted once).
 handle_input() {
   local k c seq n=0 delta=0 b
-  read -r -s -k1 -t 2 k </dev/tty || return
+  read -r -s -k1 -t ${INPUT_WAIT:-2} k </dev/tty || return
   while :; do
     if [[ $k == $'\e' ]]; then
       seq=""
@@ -1235,7 +1451,7 @@ handle_input() {
         elif (( b == 65 )); then (( delta += 3 ))
         elif (( b == 0 )) && [[ $match[4] == M ]]; then
           scroll_by $delta
-          click "$match[3]"
+          click "$match[3]" "$match[2]"
           return
         fi
       elif [[ $seq =~ '^\[\?997;([12])n$' ]]; then
@@ -1273,7 +1489,14 @@ handle_input() {
   scroll_by $delta
 }
 
-stamp() { local f; for f; do zstat +mtime "$f" 2>/dev/null; print -n .; done }
+# mtime has one-second steps; the state files are replaced on every write (tmp + mv), so the inode
+# tells two writes within the same second apart.
+stamp() { # files... -> REPLY
+  local f
+  local -A h
+  REPLY=""
+  for f; do h=(); zstat -H h "$f" 2>/dev/null; REPLY+="$h[mtime]:$h[inode]:$h[size]."; done
+}
 
 # Panels started by 0.4.x and older run inside the user's shell (a pane labeled "cheatsheet" that isn't
 # a plugin pane); swap this one for a plugin pane. On success that closes this pane and ends the sheet.
@@ -1287,27 +1510,36 @@ quiet_tty
 printf '\e[?25l%s' "$MOUSE_ON"
 trap 'printf "%s\e[?25h" "$MOUSE_OFF"; normal_tty' EXIT
 trap 'exit 130' INT TERM HUP
-trap 'FP=' WINCH
+trap 'FP= NEED_POLL=1' WINCH
 query_theme
 ROOT_STAMP=$(zstat +mtime "$ROOT_FILE" 2>/dev/null)
 update_check
 DIR="" LAST_FOCUSED="" TPANE="" FP="" SCROLL=0 VIS_ROWS=0 HINT_TOP=0 HINT_BOTTOM=0
 pick_terminal
+# herdr's state (focus, apps, agents) is polled every POLL_EVERY seconds and right after an action, never
+# for scrolling. The state files and the theme are compared on every pass, which costs no process.
+POLL_EVERY=2 LAST_POLL=0 NEED_POLL=1
 while :; do
-  read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
-  follow_update
-  if (( SEARCH )); then
-    fp="search|$LINES|$COLS|$APPEARANCE|$QUERY|$SEL|$(stamp "$BANNER_FILE" "$COLORS_FILE")"
-    [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
-    handle_input
-    continue
+  if (( NEED_POLL || EPOCHREALTIME - LAST_POLL >= POLL_EVERY )); then
+    read -r LINES COLS < <(stty size </dev/tty 2>/dev/null || print "40 60")
+    follow_update
+    if (( ! SEARCH )); then
+      locate
+      detect_apps
+      find_up "$DIR" justfile Justfile .justfile; JF=$REPLY
+    fi
+    LAST_POLL=$EPOCHREALTIME NEED_POLL=0
   fi
-  locate
-  detect_apps
-  jf=$(find_up "$DIR" justfile Justfile .justfile)
-  agents_fp=$(print -r -- "$ALLPANES" | jq -r '[.result.panes[] | select((.agent // "") != "")
-    | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")' 2>/dev/null)
-  fp="$DIR|$LINES|$COLS|$agents_fp|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$(stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" "$COLLAPSED_FILE" ${jf:+"$jf"} ${jf:+"${jf:h}/$CHEATSHEET_ALIAS_FILE"})"
+  if (( SEARCH )); then
+    stamp "$BANNER_FILE" "$COLORS_FILE"
+    fp="search|$LINES|$COLS|$APPEARANCE|$QUERY|$SEL|$REPLY"
+  else
+    stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" "$COLLAPSED_FILE" \
+      "$HIDDEN_FILE" ${JF:+"$JF"} ${JF:+"${JF:h}/$CHEATSHEET_ALIAS_FILE"}
+    fp="$DIR|$LINES|$COLS|$AGENTS_FP|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$REPLY"
+  fi
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
+  INPUT_WAIT=$(( POLL_EVERY - (EPOCHREALTIME - LAST_POLL) ))
+  (( INPUT_WAIT < 0.05 )) && INPUT_WAIT=0.05
   handle_input
 done

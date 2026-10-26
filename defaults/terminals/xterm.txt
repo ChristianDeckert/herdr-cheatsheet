@@ -1,0 +1,15 @@
+# name: xterm
+# source: https://invisible-island.net/xterm/manpage/xterm.html
+## text
+select / mid-click|copy / paste primary selection
+Shift+Insert|paste primary selection
+2× / 3× click|select word / line
+Right-click|extend selection
+Shift+drag|select in mouse-mode apps
+Shift+PgUp / PgDn|scroll half page up / down
+## app
+Ctrl+left-click|Main Options menu
+Ctrl+middle-click|VT Options menu
+Ctrl+right-click|VT Fonts menu
+Shift+KP+ / KP-|font bigger / smaller
+Alt+Enter|toggle fullscreen

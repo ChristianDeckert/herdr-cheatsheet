@@ -1,0 +1,20 @@
+# name: urxvt
+# source: http://pod.tst.eu/http://cvs.schmorp.de/rxvt-unicode/doc/rxvt.1.pod ; http://cvs.schmorp.de/rxvt-unicode/src/urxvt.pm ; http://pod.tst.eu/http://cvs.schmorp.de/rxvt-unicode/src/perl/searchable-scrollback
+## text
+select / mid-click|copy / paste primary selection
+Shift+Insert|paste primary selection
+Ctrl+Alt+C / V|clipboard copy / paste
+Alt+middle-click|paste clipboard
+Alt+drag|rectangular selection
+Shift+drag|select in mouse-mode apps
+Shift+PgUp / PgDn|scroll page up / down
+Alt+S|search scrollback (regex)
+↑ / ↓|search: prev / next match
+Enter / Esc|search: stay here / go back
+Shift+Enter|search: copy match to primary
+Ctrl+Shift+<hex>|unicode by hex code (hold)
+Ctrl+Shift+drag|show code of char under mouse
+Shift+click|move readline cursor there
+## app
+Ctrl+right-click|selection popup menu
+Ctrl+middle-click|option popup menu

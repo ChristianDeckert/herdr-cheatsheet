@@ -1,22 +1,30 @@
 # name: WezTerm
-# source: https://wezterm.org/config/default-keys.html
+# source: https://wezterm.org/config/default-keys.html ; https://github.com/wezterm/wezterm/blob/main/wezterm-gui/src/commands.rs
 ## tabs
 Ctrl+Shift+T|new tab
+Ctrl+Shift+W|close tab
 Ctrl+PgUp / PgDn|prev / next tab
 Ctrl+Shift+1..9|go to tab (9 = last)
-Ctrl+Shift+W|close tab
+Ctrl+Shift+PgUp/Dn|move tab left / right
 ## panes
 Ctrl+Shift+Alt+%|split right
 Ctrl+Shift+Alt+"|split down
 Ctrl+Shift+←→↑↓|move between panes
+Ctrl+Shift+Alt+←→|resize pane left / right
+Ctrl+Shift+Alt+↑↓|resize pane up / down
 Ctrl+Shift+Z|zoom pane
 ## text
-Ctrl+Shift+F|find
+Ctrl+Shift+C / V|copy / paste
+Ctrl+Shift+F|search
 Ctrl+Shift+K|clear scrollback
-Ctrl+Shift+C|copy
-Ctrl+Shift+V|paste
+Shift+PgUp / PgDn|scroll page up / down
+Ctrl+Shift+X|copy mode (v select, y copy)
+Ctrl+Shift+Space|quick select
+Ctrl+Shift+U|emoji / char select
 ## app
-Ctrl+= / Ctrl+-|font size +/-
-Ctrl+0|reset font size
+Ctrl+Shift+N|new window
+Ctrl+= / - / 0|font bigger / smaller / reset
+Alt+Enter|fullscreen
 Ctrl+Shift+R|reload config
 Ctrl+Shift+P|command palette
+Ctrl+Shift+L|debug overlay (Lua)

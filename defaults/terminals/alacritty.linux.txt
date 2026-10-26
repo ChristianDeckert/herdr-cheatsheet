@@ -1,18 +1,21 @@
 # name: Alacritty
-# source: https://alacritty.org/config-alacritty-bindings.html
+# source: https://alacritty.org/config-alacritty-bindings.html ; https://github.com/alacritty/alacritty/blob/v0.17.0/alacritty/src/config/bindings.rs ; https://github.com/alacritty/alacritty/blob/v0.17.0/alacritty/src/config/ui_config.rs
 ## text
-Ctrl+Shift+C|copy
-Ctrl+Shift+V|paste
-Shift+Insert|paste selection
-Ctrl+Shift+F|search forward
-Ctrl+Shift+B|search backward
+Ctrl+Shift+C / V|copy / paste
+select / mid-click|copy / paste primary selection
+Shift+Insert|paste primary selection
+Ctrl+Shift+F / B|search forward / backward
+(Shift+)Enter|search: next (prev) match
+Esc|search: cancel
 Shift+PgUp / PgDn|scroll page up / down
 Shift+Home / End|scroll to top / bottom
-Ctrl+L|clear screen
+Ctrl+Shift+O|URL hints (type label to open)
+click URL|open URL (Shift in mouse apps)
 Ctrl+Shift+Space|toggle vi mode
-v / y|vi: select / copy
-/ ?|vi: search fwd / back
-i|vi: exit vi mode
+v / V / Ctrl+V|vi: select char / line / block
+y|vi: copy selection
+/ ? n N|vi: search fwd/back, next/prev
+Enter|vi: open URL under cursor
+i / Ctrl+C|vi: exit vi mode
 ## app
-Ctrl+= / Ctrl+-|font bigger / smaller
-Ctrl+0|reset font size
+Ctrl++ / - / 0|font bigger / smaller / reset

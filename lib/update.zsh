@@ -91,10 +91,11 @@ update_now() {
 
 # Restarts this panel from the new plugin root once an update was installed from any panel.
 follow_update() {
-  local m root
-  m=$(zstat +mtime "$ROOT_FILE" 2>/dev/null)
-  [[ $m == $ROOT_STAMP ]] && return
-  ROOT_STAMP=$m
+  local root
+  local -a m
+  zstat -A m +mtime "$ROOT_FILE" 2>/dev/null
+  [[ $m[1] == $ROOT_STAMP ]] && return
+  ROOT_STAMP=$m[1]
   root=$(<"$ROOT_FILE")
   [[ $root != $ROOT && -f $root/sheet.zsh ]] || return
   printf '%s\e[?25h' "$MOUSE_OFF"

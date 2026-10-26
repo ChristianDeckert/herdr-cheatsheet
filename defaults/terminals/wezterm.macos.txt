@@ -1,10 +1,11 @@
 # name: WezTerm
-# source: https://wezterm.org/config/default-keys.html
+# source: https://wezterm.org/config/default-keys.html ; https://github.com/wezterm/wezterm/blob/main/wezterm-gui/src/commands.rs
 ## tabs
 ⌘T|new tab
-⌘⇧[ ⌘⇧]|prev / next tab
-⌘1..9|go to tab (9 = last)
 ⌘W|close tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌘1..8 ⌘9|go to tab / last tab
+⌃⇧PgUp ⌃⇧PgDn|move tab left / right
 ## panes
 ⌃⌥⇧%|split right
 ⌃⌥⇧"|split down
@@ -12,11 +13,17 @@
 ⌃⌥⇧←→↑↓|resize pane
 ⌃⇧Z|zoom pane
 ## text
-⌘F|find
+⌘C ⌘V|copy / paste
+⌘F|search
 ⌘K|clear scrollback
+⇧PgUp ⇧PgDn|scroll page up / down
+⌃⇧X|copy mode (v select, y copy)
 ⌃⇧Space|quick select
-⌃⇧X|copy mode
+⌃⇧U|emoji / char select
 ## app
+⌘N|new window
 ⌘= ⌘- ⌘0|font size
+⌥↩|fullscreen
 ⌘R|reload config
 ⌃⇧P|command palette
+⌃⇧L|debug overlay (Lua)

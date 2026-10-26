@@ -1,0 +1,84 @@
+# name: devtools
+# source: man xcodebuild ; xcodebuild -help ; xcrun simctl help (list/boot/install/launch/erase) ; swift package --help ; swift build --help ; swift test --help ; pod --help ; pod repo --help ; xcode-select --help ; https://developer.android.com/build/building-cmdline ; https://developer.android.com/studio/test/command-line ; https://developer.android.com/studio/write/lint ; https://developer.android.com/tools/adb ; adb --help ; emulator -help ; sdkmanager --help ; https://docs.python.org/3/library/venv.html ; https://pip.pypa.io/en/stable/cli/pip_install/ ; https://docs.astral.sh/uv/reference/cli/ ; https://bundler.io/man/bundle-update.1.html ; https://guides.rubygems.org/command-reference/#gem-install ; https://doc.rust-lang.org/cargo/commands/cargo-run.html ; https://doc.rust-lang.org/clippy/usage.html ; https://rust-lang.github.io/rustup/basics.html ; https://docs.npmjs.com/cli/commands ; https://docs.docker.com/reference/cli/docker/ ; https://docs.docker.com/reference/cli/docker/compose/ ; https://git-scm.com/docs ; https://pkg.go.dev/cmd/go
+## ios @macos
+xcodebuild -list|list schemes and targets
+xcodebuild -scheme {scheme} -destination 'platform=iOS Simulator,name={device}' build|build for simulator
+xcodebuild -scheme {scheme} -destination 'platform=iOS Simulator,name={device}' test|run tests on simulator
+xcodebuild -scheme {scheme} clean|clean build products
+xcrun simctl list devices available|available simulators
+xcrun simctl boot {udid}|boot a simulator
+xcrun simctl install booted {app}|install app on booted sim
+xcrun simctl launch booted {bundle_id}|launch app on booted sim
+open -a Simulator|open simulator app
+swift build|build swift package
+swift test|run package tests
+swift package resolve|resolve package deps
+swift package update|update package deps
+pod install|install cocoapods deps
+pod update|update cocoapods deps
+pod repo update|update pod spec repos
+xcode-select -p|active developer dir
+## android
+./gradlew assembleDebug|build debug apk
+./gradlew installDebug|build and install debug
+./gradlew test|run local unit tests
+./gradlew clean|clean build outputs
+./gradlew lint|run android lint
+./gradlew tasks|list gradle tasks
+adb devices|list connected devices
+adb install -r {apk}|reinstall apk keeping data
+adb logcat|stream device log
+adb shell|interactive device shell
+adb reverse tcp:{port} tcp:{port}|forward device port to host
+emulator -list-avds|list virtual devices
+emulator -avd {name}|start emulator
+sdkmanager --list|list sdk packages
+## python
+python3 -m venv .venv|create virtual env in .venv
+source .venv/bin/activate|activate venv (bash/zsh)
+python3 -m pip install -r requirements.txt|install from requirements
+python3 -m pip install {package}|install a package
+python3 -m pytest|run tests with pytest
+uv sync|sync project env (uv)
+uv run {script}|run script in uv env
+## ruby
+bundle install|install gems from gemfile
+bundle exec {command}|run command in bundle env
+gem install {package}|install a gem
+bundle update --all|update all bundled gems
+## rust
+cargo build|compile the package
+cargo run|build and run binary
+cargo test|run tests
+cargo clippy|lint with clippy
+cargo fmt|format code with rustfmt
+rustup update|update rust toolchains
+## node
+npm ci|clean install from lockfile
+npm install {package}|add a dependency
+npm run {script}|run package.json script
+npm test|run test script
+npm outdated|list outdated packages
+npx {package}|run a package binary
+## docker
+docker build -t {image} .|build image from dockerfile
+docker run --rm -it {image}|run interactive, auto-remove
+docker ps|list running containers
+docker logs -f {container}|follow container logs
+docker exec -it {container} sh|shell into container
+docker compose up -d|start services detached
+docker compose down|stop and remove services
+## git
+git status -sb|short status with branch
+git log --oneline --graph --decorate -20|graph of last 20 commits
+git stash|stash working changes
+git stash pop|restore latest stash
+git rebase -i HEAD~{n}|interactive rebase last n
+git commit --amend --no-edit|amend, keep message
+git clean -nd|preview untracked to delete
+git switch -c {branch}|create and switch branch
+## go
+go run .|run package in current dir
+go build ./...|build all packages
+go test ./...|test all packages
+go mod tidy|sync go.mod with imports

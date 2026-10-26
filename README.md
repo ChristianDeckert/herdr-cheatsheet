@@ -12,7 +12,7 @@ One command installs the plugin, adds its two keys to herdr's config and reloads
 
 - The panel opens on the right of every new tab. `prefix+shift+k` shows or hides it, `prefix+f` searches the project's files.
 - Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
-- Click a section's heading to collapse or expand it; all panels follow. An app's section opens when the app starts.
+- Click a section's heading to collapse or expand it, or its `hide` button to hide it; all panels follow. Hidden sections and tool groups wait in the `hidden` list at the bottom. An app's section opens when the app starts.
 - Keys inside the panel: `/` search files · `e` open with · `r` refresh · `b` logo · `t` colors · `q` close · `u` update.
 - Settings live in `config.zsh` in `$(herdr plugin config-dir christiandeckert.cheatsheet)`.
 - Needs herdr 0.9.4+, zsh and jq on macOS or Linux; just, fzf and rg are optional.
@@ -25,13 +25,17 @@ One command installs the plugin, adds its two keys to herdr's config and reloads
 
 ### What the panel shows
 
+Below the logo, the file search always comes first, then the key sections of the apps running in the tab, the focused pane's app on top. The other sections follow in alphabetical order, and the hidden list stays at the bottom.
+
 - **Logo**: "CHEATSHEET" in the ANSI Shadow style with a retro gradient, and the focused project's path. Narrow panels get a compact logo.
 - **File search**: a search field for the project's files. See [Search and open files](#search-and-open-files).
 - **App keys**: while a known app runs in the tab, a section with its essential keys appears, and disappears when the app quits. Clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top) and AI agents (Claude Code, Codex). See [App keys](#app-keys).
 - **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects and only appears when there is a justfile.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
-- **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli, always shown. See [Tools](#tools).
-- **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
+- **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli. See [Tools and devtools](#tools-devtools-and-packages).
+- **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Python, Ruby, Rust, Node.js, Docker, Git and Go.
+- **Packages**: install, remove, search, update and clean up with Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak. Only the package managers available on your system show by default; the others wait in the hidden list.
+- **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, foot, urxvt, xterm, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab.
 - **Panel controls**: refresh, hide or show the logo, switch colors, close.
 - **Update status**: `update to x.y.z` under the logo when a new version is out, otherwise `✓ up to date` at the bottom.
@@ -52,7 +56,7 @@ Rows marked `▸` run when you click them:
 - **herdr actions** run through herdr: new tab, split, zoom, next/previous pane, move tab, close pane, tab or workspace, reload config and more. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
-- **Tools** type their command at a shell prompt in the tab, without Enter, with the cursor on the first `{placeholder}` to fill in. See [Tools](#tools).
+- **Tools and devtools** type their command at a shell prompt in the tab, without Enter, with the cursor on the first `{placeholder}` to fill in. See [Tools and devtools](#tools-devtools-and-packages).
 - **App keys** send the key to the app's pane and focus it: `:w` saves in vim, `P` pushes in lazygit, `F9` kills in htop. See [App keys](#app-keys).
 - **Update**: click `update to x.y.z` or press `u` to run `herdr plugin update`, which shows what changed and asks first. Every open panel then restarts on the new version.
 
@@ -63,6 +67,7 @@ The mouse wheel scrolls the panel when it's taller than the pane.
 - **Light and dark**: the panel asks the terminal for its background and switches between a pastel and a deeper palette, live when the terminal changes appearance.
 - **Retro or terminal colors** (key `t`): the logo's pink, lavender and cyan, or your theme's own colors.
 - **Collapsible sections**: click a heading (`▾` open, `▸` collapsed) to fold or unfold that section. The state is shared by all panels in all workspaces, and an app's key section opens whenever the app starts.
+- **Hide what you don't use**: every section heading and every tools/devtools group has a `hide` button on the right. Hidden items move into the `hidden` list at the bottom, collapsed until you open it, where a click shows them again. Shared by all panels too. Groups that don't fit your system (pacman on macOS, iOS tools on Linux, a package manager that isn't installed) start there, with the reason next to them.
 - **Logo on or off** (key `b`). The pane's frame shows the name `cheatsheet` only while the logo is hidden.
 - **Width**: 54 columns by default, enough for the full logo, at most 40% of the tab.
 - **Key symbols**: `⌃ ⌥ ⇧ ⌘` on macOS, `^` for Control on Linux.
@@ -209,14 +214,14 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
 | `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) with the file selected in its folder |
 | `CHEATSHEET_APPS` | `on` | `off` hides the key sections of running apps |
-| `CHEATSHEET_TOOLS` | `on` | `off` hides the tools section |
+| `CHEATSHEET_TOOLS` | `on` | `off` hides the tools, devtools and packages sections (or hide them, or single groups, with their `hide` buttons) |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
 
 Content changes show up within two seconds; press `r` in the panel to detect the terminal again and check for updates. Width and auto-open settings apply to newly opened panels.
 
 ## Terminal detection
 
-Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the herdr client process instead. It walks up its process tree to the terminal app, which also works when you attach from a different terminal than the one that started the server. When you attach over SSH, or when no local client is found, it falls back to environment hints the server inherited, such as `__CFBundleIdentifier`, `KITTY_WINDOW_ID`, `WEZTERM_PANE`, `WT_SESSION` or `VTE_VERSION`. Unknown terminals get a short generic list plus a hint to set `CHEATSHEET_TERMINAL`.
+Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the herdr client process instead. It walks up its process tree to the terminal app, which also works when you attach from a different terminal than the one that started the server. When that finds no terminal, for example when you attach over SSH, it reads the client's own environment on Linux: herdr gives its panes `TERM=xterm-256color`, but the client keeps the terminal's `TERM` (`xterm-kitty`, `foot`, `alacritty`, `rxvt-unicode-256color`) and variables such as `XTERM_VERSION` or `KONSOLE_VERSION`. Last come environment hints the server inherited, such as `__CFBundleIdentifier`, `KITTY_WINDOW_ID`, `WEZTERM_PANE`, `WT_SESSION` or `VTE_VERSION`. Unknown terminals get a short generic list plus a hint to set `CHEATSHEET_TERMINAL`.
 
 | Id | Terminal | Lists |
 |---|---|---|
@@ -229,7 +234,10 @@ Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the
 | `hyper` | Hyper | macOS, Linux |
 | `vscode` | VS Code integrated terminal | macOS, Linux |
 | `gnome-terminal` | GNOME Terminal, Console, Ptyxis, Tilix (VTE) | Linux |
-| `konsole` | Konsole | Linux |
+| `konsole` | Konsole, Yakuake | Linux |
+| `foot` | foot (also footclient) | Linux |
+| `urxvt` | rxvt-unicode (also urxvtd/urxvtc) | Linux |
+| `xterm` | xterm, uxterm | Linux, macOS (XQuartz) |
 | `windows-terminal` | Windows Terminal (WSL) | Linux |
 | `generic` | anything else | macOS, Linux |
 
@@ -279,7 +287,7 @@ A click sends the row's key to the pane the app runs in, through `herdr pane sen
 
 macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section only appears for GNU nano (for example `brew install nano`).
 
-## Tools
+## Tools, devtools and packages
 
 The tools section lists ready-made commands, grouped by tool:
 
@@ -291,7 +299,19 @@ The tools section lists ready-made commands, grouped by tool:
 | gzip, xz, zstd, bzip2, brotli | compress keeping the original, decompress |
 | 7-Zip | create `.7z`, extract into a folder |
 
-Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` and `{end}`, and highlighted in the panel. A click types the command at a shell prompt in the tab, the main pane first, without pressing Enter, puts the cursor on the first placeholder and focuses that pane. Braces rather than `<input>` because the shell would read `<` and `>` as redirects if one is left in by mistake. When no pane in the tab sits at a shell prompt (Claude Code or an editor in every pane), the command goes to the clipboard instead. Every command was run on test files with the installed tools, except 7-Zip's, which follow its documentation, and uses flags that both GNU and BSD tar accept; `.tar.zst` needs GNU tar 1.31 or newer and `zstd` installed. To change the list, copy the plugin's `defaults/tools.txt` into the config directory and edit it: `## tool` lines start a group, then one `command|description` per line.
+Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` and `{end}`, and highlighted in the panel. A click types the command at a shell prompt in the tab, the main pane first, without pressing Enter, puts the cursor on the first placeholder and focuses that pane. Braces rather than `<input>` because the shell would read `<` and `>` as redirects if one is left in by mistake. When no pane in the tab sits at a shell prompt (Claude Code or an editor in every pane), the command goes to the clipboard instead. Every command was run on test files with the installed tools, except 7-Zip's, which follow its documentation, and uses flags that both GNU and BSD tar accept; `.tar.zst` needs GNU tar 1.31 or newer and `zstd` installed. The devtools section works the same way, with these groups:
+
+| Group | Commands |
+|---|---|
+| ios | xcodebuild (list, build, test, clean), simulators (`xcrun simctl`), Swift Package Manager, CocoaPods |
+| android | Gradle wrapper tasks, adb, emulator, sdkmanager |
+| python, ruby, rust, node, go | environments, dependencies, build, run, test, lint |
+| docker | build, run, ps, logs, exec, compose |
+| git | status, log graph, stash, interactive rebase, amend, clean dry run, new branch |
+
+The packages section lists Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak with install, remove, search, info, list, update, upgrade and cleanup commands; `sudo` is included where the tool needs root.
+
+Groups can be tagged with the platforms they run on and the command they need, for example `## pacman @linux ?pacman` or `## ios @macos`. A group whose platform doesn't match or whose command isn't installed starts in the hidden list, marked `(not on macos)` or `(port not installed)`, and a click there shows it anyway. Any other group can be hidden with the `hide` button on its line. To change a list, copy the plugin's `defaults/tools.txt`, `defaults/devtools.txt` or `defaults/packages.txt` into the config directory and edit it: `## group` lines (with optional `@platform` and `?command` tags) start a group, then one `command|description` per line. A command may contain `|` itself; the description is what follows the last one. The panel lists the groups alphabetically; the commands inside a group keep the file's order.
 
 ## How it works
 

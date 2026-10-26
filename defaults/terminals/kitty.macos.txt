@@ -1,22 +1,30 @@
 # name: kitty
-# source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts
+# source: https://sw.kovidgoyal.net/kitty/conf/#keyboard-shortcuts ; https://github.com/kovidgoyal/kitty/blob/master/kitty/options/definition.py
 ## tabs
 ⌘T|new tab
-⌘⇧[ ⌘⇧]|prev / next tab
 ⌘W|close tab
+⌘⇧[ ⌘⇧]|prev / next tab
+⌃⇧, ⌃⇧.|move tab back / forward
+⌘⇧I|rename tab
 ## panes
 ⌘↩|new window (split)
+⌘⇧D|close window
 ⌃⇧[ ⌃⇧]|prev / next window
 ⌘1..9|go to window N
 ⌃⇧L|next layout
-⌘⇧D|close window
+⌘R|resize window mode
 ## text
+⌘C ⌘V|copy / paste
 ⌘F|search scrollback
-⌘⌥K|clear scrollback
+⌃⇧H|scrollback in pager
+⌃⇧G|last command output
+⌃⇧Z ⌃⇧X|prev / next prompt
 ⌃⇧E|open URL (hints)
-⌃⇧H|browse scrollback
+⌘K|clear screen & scrollback
+⌃⌘Space|unicode input
 ## app
+⌘N|new OS window
 ⌘+ ⌘- ⌘0|font size
-⌘,|edit config
-⌃⌘,|reload config
+⌃⌘F|fullscreen
+⌘, ⌃⌘,|edit / reload config
 ⌃⇧F3|command palette
