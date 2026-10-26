@@ -1196,11 +1196,12 @@ open_selected() {
 
 # Everything hidden with a "hide" button, collapsed until opened; a click shows the item again.
 render_hidden() {
-  local id label f
+  local id label
   local -a ids=()
   for id in ${HIDDEN:#+*} ${(ok)UNAVAILABLE}; do is_hidden "$id" && (( ! ${ids[(Ie)$id]} )) && ids+=("$id"); done
   (( ${#ids} )) || return
   section hidden "hidden ${D}(${#ids})${R}" || return
+  local -a rows=()
   for id in $ids; do
     case $id in
       app:*)
@@ -1209,6 +1210,11 @@ render_hidden() {
       */*) label="${id%%/*} › ${id#*/}" ;;
       *) label=$id ;;
     esac
+    rows+=("$label"$'\t'"$id")
+  done
+  # listed by name
+  for label in "${(@oi)rows}"; do
+    id=${label#*$'\t'} label=${label%%$'\t'*}
     [[ -n ${UNAVAILABLE[$id]} ]] && label+=" ${D}(${UNAVAILABLE[$id]})${R}"
     row "show" "$label" "$K" "unhide:$id"
   done
