@@ -29,14 +29,14 @@ Below the logo, the file search always comes first, then the key sections of the
 
 - **Logo**: "CHEATSHEET" in the ANSI Shadow style with a retro gradient, and the focused project's path. Narrow panels get a compact logo.
 - **File search**: a search field for the project's files. See [Search and open files](#search-and-open-files).
-- **App keys**: while a known app runs in the tab, a section with its essential keys appears, and disappears when the app quits. Clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top) and AI agents (Claude Code, Codex). See [App keys](#app-keys).
-- **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects and only appears when there is a justfile.
+- **App keys**: every installed app it knows has a section with its essential keys, collapsed until you open it. While the app runs in the tab, its section moves to the top and opens, and clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top) and AI agents (Claude Code, Codex). See [App keys](#app-keys).
+- **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects; without a justfile it says so, and like any section it can be hidden.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
 - **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli. See [Tools and devtools](#tools-devtools-and-packages).
 - **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Python, Ruby, Rust, Node.js, Docker, Git and Go.
 - **Packages**: install, remove, search, update and clean up with Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak. Only the package managers available on your system show by default; the others wait in the hidden list.
 - **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, foot, urxvt, xterm, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
-- **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab.
+- **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab. Without agents the section says so.
 - **Panel controls**: refresh, hide or show the logo, switch colors, close.
 - **Update status**: `update to x.y.z` under the logo when a new version is out, otherwise `✓ up to date` at the bottom.
 
@@ -245,7 +245,7 @@ Every list contains defaults confirmed in the terminal's official documentation 
 
 ## App keys
 
-The panel asks herdr which processes run in the foreground of its tab's panes (`herdr pane process-info`), adds the ones herdr can't inspect (macOS's `top` runs as root) from `ps` by the pane's foreground process group, and shows a key section for each app it knows. Scripts run by an interpreter (ranger under Python) are matched by the script's name:
+The panel asks herdr which processes run in the foreground of its tab's panes (`herdr pane process-info`), adds the ones herdr can't inspect (macOS's `top` runs as root) from `ps` by the pane's foreground process group, and moves the section of each app it finds to the top, opened. Apps that aren't running keep a regular, collapsed section, sorted with the others; apps that aren't installed (none of their process names is on `PATH`) wait in the hidden list. Scripts run by an interpreter (ranger under Python) are matched by the script's name:
 
 | Kind | App | Process names | List |
 |---|---|---|---|
@@ -285,7 +285,7 @@ A click sends the row's key to the pane the app runs in, through `herdr pane sen
 - In vim and Helix every click sends Esc first, so a click never types into your file while insert mode is on.
 - Ranges like `1-5` stay dimmed.
 
-macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section only appears for GNU nano (for example `brew install nano`).
+macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section counts as not installed until GNU nano is (for example `brew install nano`).
 
 ## Tools, devtools and packages
 

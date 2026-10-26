@@ -135,13 +135,15 @@ cs_cmd_file() { # tools|devtools -> its command list (user override first, then 
   done
 }
 
-cs_app_file() { # id -> key list of an app (user override first, then built-in; OS variant first)
+cs_app_file() { # id -> REPLY: key list of an app (user override first, then built-in; OS variant first)
   local d f os=$CS_OS
+  REPLY=""
   for d in "$CS_CONFIG_DIR/apps" "$CS_ROOT/defaults/apps"; do
     for f in "$1.$os.txt" "$1.txt"; do
-      [[ -f "$d/$f" ]] && { print -r -- "$d/$f"; return }
+      [[ -f "$d/$f" ]] && { REPLY="$d/$f"; return }
     done
   done
+  return 1
 }
 
 cs_terminal_file() { # id -> shortcut list (user override first, then built-in, then generic)

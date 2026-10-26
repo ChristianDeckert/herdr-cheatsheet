@@ -13,7 +13,7 @@ zmodload -F zsh/stat b:zstat
 zmodload zsh/datetime
 
 typeset -A KEYS ALIAS
-typeset -a OUT ACT PLAIN FIT JUST_RECIPES JUST_DOCS
+typeset -a OUT ACT PLAIN FIT JUST_RECIPES JUST_DOCS APP_ORDER
 B=$'\e[1m' D=$'\e[2m' C=$'\e[36m' Y=$'\e[33m' M=$'\e[35m' R=$'\e[0m'
 # Sheet mode: SGR mouse reporting on, auto-wrap off and color-scheme reports on. Without wrap, a line
 # wider than the pane is cut at the edge instead of taking a second screen row, which would shift every
@@ -131,13 +131,15 @@ list_set() { # file id on|off
 
 set_collapsed() { list_set "$COLLAPSED_FILE" "$1" "$2" }
 
-# The hidden list is the one section that starts collapsed: its open state is stored as hidden:open.
+# Sections in CLOSED_DEFAULT (the hidden list, apps that aren't running) start collapsed; for those the
+# collapsed list stores "<id>:open" once one is opened.
+typeset -a CLOSED_DEFAULT=(hidden)
 toggle_section() { # id
   read_collapsed
-  if [[ $1 == hidden ]]; then
-    if (( ${COLLAPSED[(Ie)hidden:open]} )); then set_collapsed hidden:open off; else set_collapsed hidden:open on; fi
-  elif (( ${COLLAPSED[(Ie)$1]} )); then set_collapsed "$1" off
-  else set_collapsed "$1" on
+  local id=$1
+  (( ${CLOSED_DEFAULT[(Ie)$1]} )) && id="$1:open"
+  if (( ${COLLAPSED[(Ie)$id]} )); then set_collapsed "$id" off
+  else set_collapsed "$id" on
   fi
 }
 
@@ -150,9 +152,10 @@ read_hidden() {
 }
 # Groups of the command lists can be tagged with the platforms they run on and the command they need
 # ("## pacman @linux ?pacman"). Groups unavailable here start out hidden; "+id" in the hidden file marks
-# one the user chose to show anyway.
+# one the user chose to show anyway. A hidden app's section still shows while the app runs in this tab.
 typeset -A UNAVAILABLE
 is_hidden() {
+  [[ $1 == app:* ]] && (( ${APPS[(Ie)${1#app:}]} )) && return 1
   (( ${HIDDEN[(Ie)$1]} )) && return 0
   [[ -n ${UNAVAILABLE[$1]} ]] && (( ! ${HIDDEN[(Ie)+$1]} ))
 }
@@ -215,13 +218,14 @@ section() { # id title
   setopt local_options extended_glob
   is_hidden "$1" && return 1
   local mark="▾" closed=0 plain btn=""
-  if [[ $1 == hidden ]]; then (( ${COLLAPSED[(Ie)hidden:open]} )) || closed=1
+  if (( ${CLOSED_DEFAULT[(Ie)$1]} )); then (( ${COLLAPSED[(Ie)$1:open]} )) || closed=1
   else (( ${COLLAPSED[(Ie)$1]} )) && closed=1
   fi
   (( closed )) && mark="▸"
   (( ${#OUT} )) && line ""
   plain="$mark ${(S)2//$'\e'\[[0-9;]#m/}"
-  [[ $1 != (panel|hidden) ]] && { hide_button "$1" ${#plain}; btn=$REPLY }
+  # a hidden app shown because it runs has no button: hiding it again would change nothing in view
+  [[ $1 != (panel|hidden) ]] && (( ! ${HIDDEN[(Ie)$1]} )) && { hide_button "$1" ${#plain}; btn=$REPLY }
   OUT+=("${D}$mark${R} ${B}$2${R}$btn") PLAIN+=("$plain") ACT+=("section:$1")
   return $closed
 }
@@ -318,9 +322,10 @@ typeset -A AGENT_COLOR=(blocked $'\e[31m' done $'\e[32m' working $'\e[33m' idle 
 
 # Agent panes across all workspaces, most urgent first; clicking one jumps there.
 render_agents() {
-  [[ $CHEATSHEET_AGENTS == off || -z $AGENTS_FP ]] && return
+  [[ $CHEATSHEET_AGENTS == off ]] && return
   # one jq: the number of agents to show, the per-status counts, then one row per agent
-  local -a r=("${(@f)$(print -r -- "$ALLPANES" | jq -r --arg m "$CHEATSHEET_AGENTS" \
+  local -a r
+  [[ -n $AGENTS_FP ]] && r=("${(@f)$(print -r -- "$ALLPANES" | jq -r --arg m "$CHEATSHEET_AGENTS" \
       --argjson max "${CHEATSHEET_AGENTS_MAX:-8}" '
     [.result.panes[] | select((.agent // "") != "")
      | select($m != "attention" or .agent_status == "blocked" or .agent_status == "done")
@@ -329,7 +334,13 @@ render_agents() {
     | length, (group_by(.agent_status) | map("\(length) \(.[0].agent_status)") | join(" · ")),
       (.[:$max][] | [.pane_id, .agent_status, .tab_id, .workspace_id, (.terminal_title_stripped // .agent)] | @tsv)' 2>/dev/null)}")
   local n=${r[1]:-0} max=${CHEATSHEET_AGENTS_MAX:-8} id lbl l desc
-  (( n )) || return
+  if (( ! n )); then
+    section agents "agents" || return
+    if [[ $CHEATSHEET_AGENTS == attention ]]; then line "   ${D}no agent needs attention${R}"
+    else line "   ${D}no agents running${R}"
+    fi
+    return
+  fi
   typeset -A wsl
   "$H" workspace list 2>/dev/null | jq -r '.result.workspaces[] | "\(.workspace_id)\t\(.label)"' |
     while IFS=$'\t' read -r id lbl; do wsl[$id]=$lbl; done
@@ -377,11 +388,17 @@ find_up() { # dir name... -> REPLY: first match walking up
   done
 }
 
-# Only shown for a project with a justfile; it appears and disappears as the focus moves between projects.
+# The recipes of the focused project's justfile; they follow the focus between projects.
 render_just() {
   local jf a c
   find_up "$1" justfile Justfile .justfile; jf=$REPLY
-  [[ -n "$jf" ]] || return
+  if [[ -z "$jf" ]]; then
+    section just "just" || return
+    if [[ $1 == / ]]; then line "   ${D}no justfile in /${R}"
+    else line "   ${D}no justfile in ${1:t} or above${R}"
+    fi
+    return
+  fi
   section just "just — ${jf:h:t}" || return
   (( $+commands[just] )) || { line " ${D}install just to list recipes${R}"; return }
   local af="${jf:h}/$CHEATSHEET_ALIAS_FILE" i
@@ -827,14 +844,56 @@ app_of() { # argv0 argv1
   [[ -n $REPLY ]]
 }
 
-render_apps() {
-  local id f
-  for id in $APPS; do
-    f=$(cs_app_file "$id")
-    [[ -n $f ]] || continue
-    list_name "$f"
-    render_keyfile "$f" "$REPLY ${D}(running)${R}" "app:$id" "$id"
+# The ids of all app key lists, from the plugin's and the user's apps folders.
+app_ids() { # -> reply
+  setopt local_options extended_glob
+  local f
+  reply=()
+  for f in "$CS_ROOT"/defaults/apps/*.txt(N) "$CS_CONFIG_DIR"/apps/*.txt(N); do
+    f=${${f:t:r}%.(macos|linux)}
+    (( ${reply[(Ie)$f]} )) || reply+=($f)
   done
+}
+
+# An app counts as installed when one of the commands it runs as is on PATH.
+app_installed() { # id
+  local c
+  # macOS ships UW Pico as nano; the GNU nano list doesn't apply to it
+  [[ $1 == nano && ${commands[nano]:A:t} == pico ]] && return 1
+  for c in $1 ${(k)APP_OF[(R)$1]}; do (( $+commands[$c] )) && return 0; done
+  return 1
+}
+
+# Apps that aren't running are regular sections, sorted with the others and collapsed until opened
+# (APP_ORDER, CLOSED_DEFAULT); those not installed wait in the hidden list.
+scan_apps() {
+  local id
+  APP_ORDER=() CLOSED_DEFAULT=(hidden)
+  [[ $CHEATSHEET_APPS == off ]] && return
+  app_ids
+  for id in $reply; do
+    (( ${APPS[(Ie)$id]} )) && continue
+    cs_app_file "$id" || continue
+    list_name "$REPLY"
+    APP_ORDER+=("${(L)${REPLY//:/}:-$id}:app:$id") CLOSED_DEFAULT+=("app:$id")
+    app_installed "$id" || UNAVAILABLE[app:$id]="not installed"
+  done
+}
+
+# An app's keys: open and on top while it runs in this tab (its keys then go to its pane on click),
+# otherwise a regular section.
+render_app() { # id
+  cs_app_file "$1" || return
+  local f=$REPLY
+  list_name "$f"
+  if (( ${APPS[(Ie)$1]} )); then render_keyfile "$f" "$REPLY ${D}(running)${R}" "app:$1" "$1"
+  else render_keyfile "$f" "$REPLY" "app:$1" "$1"
+  fi
+}
+
+render_apps() {
+  local id
+  for id in $APPS; do render_app "$id"; done
 }
 
 # Collects all sections into OUT/ACT/PLAIN. Runs herdr, jq and just, so only when something changed.
@@ -849,6 +908,7 @@ render_section() { # id dir
     just) render_just "$2" ;;
     panel) render_panel ;;
     terminal) render_terminal ;;
+    app:*) render_app "${1#app:}" ;;
     *) render_cmdfile "$1" ;;
   esac
 }
@@ -858,6 +918,7 @@ build() {
   read_collapsed
   read_hidden
   scan_unavailable
+  scan_apps
   apply_palette
   sync_label
   if (( SEARCH )); then
@@ -870,7 +931,7 @@ build() {
   render_update
   render_search
   render_apps
-  local s order=($SECTION_ORDER "${(L)TERMHEAD%% *}:terminal")
+  local s order=($SECTION_ORDER $APP_ORDER "${(L)TERMHEAD%% *}:terminal")
   for s in ${(oi)order}; do render_section ${s#*:} "$1"; done
   render_hidden
   render_update_status
@@ -1136,15 +1197,14 @@ open_selected() {
 # Everything hidden with a "hide" button, collapsed until opened; a click shows the item again.
 render_hidden() {
   local id label f
-  local -a ids=(${HIDDEN:#+*})
-  for id in ${(ok)UNAVAILABLE}; do is_hidden "$id" && (( ! ${ids[(Ie)$id]} )) && ids+=("$id"); done
+  local -a ids=()
+  for id in ${HIDDEN:#+*} ${(ok)UNAVAILABLE}; do is_hidden "$id" && (( ! ${ids[(Ie)$id]} )) && ids+=("$id"); done
   (( ${#ids} )) || return
   section hidden "hidden ${D}(${#ids})${R}" || return
   for id in $ids; do
     case $id in
       app:*)
-        f=$(cs_app_file "${id#app:}")
-        REPLY=""; [[ -n $f ]] && list_name "$f"
+        cs_app_file "${id#app:}" && list_name "$REPLY"
         label="${REPLY:-${id#app:}} keys" ;;
       */*) label="${id%%/*} › ${id#*/}" ;;
       *) label=$id ;;
