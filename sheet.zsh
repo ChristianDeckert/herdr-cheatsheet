@@ -74,11 +74,17 @@ fmt_key() { # "prefix+alt+r" -> REPLY="⌃B ⌥r"
 }
 
 # herdr's defaults are read once; the user's keys again only when config.toml changes.
+# --default-config leaves out a few defaults (herdr 0.9.5, src/config/model.rs); they're added here.
 typeset -A DEFAULT_KEYS
+typeset -A UNLISTED_DEFAULT_KEYS=(
+  swap_pane_left prefix+shift+h  swap_pane_down prefix+shift+j
+  swap_pane_up prefix+shift+k    swap_pane_right prefix+shift+l
+)
 KEYS_STAMP=""
 load_herdr_keys() {
   local name val
-  local -a m
+  local -a m user_keys
+  local -A own
   zstat -A m +mtime "$CONFIG" 2>/dev/null
   [[ "x$m[1]" == $KEYS_STAMP ]] && return
   KEYS_STAMP="x$m[1]"
@@ -86,10 +92,19 @@ load_herdr_keys() {
     # defaults are the commented `# name = "value"` lines in the [keys] section
     "$H" --default-config | awk '/^\[keys\]/{k=1;next} /^\[/{k=0} k' |
       sed -nE 's/^# ([a-z_]+) = "([^"]*)".*/\1 \2/p' | while read -r name val; do DEFAULT_KEYS[$name]=$val; done
+    for name val in "${(@kv)UNLISTED_DEFAULT_KEYS}"; do : ${DEFAULT_KEYS[$name]:=$val}; done
   fi
   KEYS=("${(@kv)DEFAULT_KEYS}")
   awk '/^\[keys\]/{k=1;next} /^\[/{k=0} k' "$CONFIG" 2>/dev/null |
-    sed -nE 's/^([a-z_]+) *= *"([^"]*)".*/\1 \2/p' | while read -r name val; do KEYS[$name]=$val; done
+    sed -nE 's/^([a-z_]+) *= *"([^"]*)".*/\1 \2/p' | while read -r name val; do
+      KEYS[$name]=$val own[$name]=1 user_keys+=("$val")
+    done
+  user_keys+=(${(f)"$(awk '/^\[\[keys\.command\]\]/{b=1;next} /^\[/{b=0}
+    b && /^key *=/{ sub(/^key *= *["\047]/,""); sub(/["\047] *$/,""); print }' "$CONFIG" 2>/dev/null)"})
+  # herdr reads the user's bindings first and silently drops a default that uses one of their keys
+  for name in ${(k)KEYS}; do
+    [[ $name != prefix && -z ${own[$name]} ]] && (( ${user_keys[(Ie)$KEYS[$name]]} )) && unset "KEYS[$name]"
+  done
   fmt_key "${KEYS[prefix]:-ctrl+b}"; PREFIX=$REPLY
 }
 
@@ -442,6 +457,14 @@ render_herdr() {
     split_vertical "split right" herdr:split:right
     split_horizontal "split down" herdr:split:down
     focus_pane_hjkl "focus pane h/j/k/l" ""
+    swap_pane_left "swap with pane left" herdr:swap:left
+    swap_pane_down "swap with pane below" herdr:swap:down
+    swap_pane_up "swap with pane above" herdr:swap:up
+    swap_pane_right "swap with pane right" herdr:swap:right
+    click:stack_down "move below neighbor" herdr:stack:down
+    click:stack_right "move right of neighbor" herdr:stack:right
+    click:move_tab "move to new tab" herdr:move:tab
+    click:move_workspace "move to new workspace" herdr:move:workspace
     cycle_pane_next "next pane" herdr:pane:1
     cycle_pane_previous "prev pane" herdr:pane:-1
     last_pane "last pane" ""
@@ -482,6 +505,14 @@ render_herdr() {
       flush_group "$G"
       fmt_key "${KEYS[focus_pane_left]}"
       row "$REPLY…${KEYS[focus_pane_right]##*+}" "$desc" "$Y"
+      continue
+    fi
+    # herdr has no keys for moving panes and a user binding may have replaced a swap key: such rows
+    # still work as clicks
+    if [[ $name == click:* || $name == swap_pane_* ]]; then
+      flush_group "$G"
+      if [[ -n ${KEYS[$name]} ]]; then fmt_key "${KEYS[$name]}"; else REPLY=click; fi
+      row "$REPLY" "$desc" "$K" "$act"
       continue
     fi
     [[ -n "${KEYS[$name]}" ]] || continue
@@ -1388,6 +1419,53 @@ pane_neighbor() { # +1 | -1
   api pane.focus "{\"pane_id\":\"$next\"}"
 }
 
+# REPLY: the pane next to the active pane in a direction, if it's one of this tab's panes, so a click
+# never swaps or stacks with a cheat-sheet panel.
+pane_beside() { # left|right|up|down
+  REPLY=$("$H" pane neighbor --pane "$TPANE" --direction "$1" 2>/dev/null |
+    jq -r '.result.neighbor.neighbor_pane_id // empty')
+  [[ -n $REPLY ]] && (( ${TAB_PANES[(Ie)$REPLY]} ))
+}
+
+swap_pane() { # left|right|up|down
+  [[ -n "$TPANE" ]] || return
+  typeset -A where=(left "to the left of" right "to the right of" up above down below)
+  pane_beside "$1" || { notice "no pane $where[$1] the active pane"; return }
+  herdr_do pane swap --pane "$TPANE" --direction "$1"
+}
+
+# Puts the active pane below (down) or to the right of the pane beside it. herdr doesn't move a pane
+# within its tab, so it goes through a new tab and back; its process keeps running.
+stack_pane() { # down|right
+  [[ -n "$TPANE" ]] || return
+  local target="" d out p tmp
+  local -a dirs=(left right)
+  [[ $1 == right ]] && dirs=(up down)
+  for d in $dirs; do pane_beside "$d" && { target=$REPLY; break }; done
+  if [[ -z $target ]]; then
+    [[ $1 == down ]] && notice "no pane beside the active pane" || notice "no pane above or below the active pane"
+    return
+  fi
+  out=$("$H" pane move "$TPANE" --new-tab --no-focus 2>&1)
+  p=$(print -r -- "$out" | jq -r '.result.move_result.pane.pane_id // empty' 2>/dev/null)
+  tmp=$(print -r -- "$out" | jq -r '.result.move_result.pane.tab_id // empty' 2>/dev/null)
+  if [[ -z $p ]]; then
+    fail "can't move the pane: $(print -r -- "$out" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "$out")"
+    return
+  fi
+  herdr_do pane move "$p" --tab "$HERDR_TAB_ID" --target-pane "$target" --split "$1" --focus
+  # herdr closes the emptied tab, unless the new-tab hook gave it a cheat sheet meanwhile
+  [[ -n $tmp ]] && { "$H" tab close "$tmp" >/dev/null 2>&1; ( sleep 2; "$H" tab close "$tmp" >/dev/null 2>&1 ) &! }
+}
+
+move_pane_away() { # tab|workspace
+  [[ -n "$TPANE" ]] || return
+  local -a rest=(${TAB_PANES:#$TPANE})
+  herdr_do pane move "$TPANE" --new-$1 --focus || return
+  # it was the tab's last pane: only cheat sheets are left, so the tab goes too
+  (( ${#rest} )) || herdr_do tab close "$HERDR_TAB_ID"
+}
+
 # herdr closes a tab together with its last pane; the sheet doesn't count, so do the same.
 close_pane() {
   [[ -n "$TPANE" ]] || return
@@ -1448,6 +1526,9 @@ execute() { # action
     herdr:close_pane) close_pane ;;
     herdr:close_workspace) herdr_do workspace close "$HERDR_WORKSPACE_ID" ;;
     herdr:pane:*) pane_neighbor "${a##*:}" ;;
+    herdr:swap:*) swap_pane "${a##*:}" ;;
+    herdr:stack:*) stack_pane "${a##*:}" ;;
+    herdr:move:*) move_pane_away "${a##*:}" ;;
     herdr:move_tab:*) move_tab "${a##*:}" ;;
     herdr:workspace:*) workspace_neighbor "${a##*:}" ;;
     herdr:agent:*) agent_neighbor "${a##*:}" ;;

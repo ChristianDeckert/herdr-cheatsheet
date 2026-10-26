@@ -9,6 +9,10 @@ set -eu
 REPO=ChristianDeckert/herdr-cheatsheet
 ID=christiandeckert.cheatsheet
 MIN_HERDR=0.9.4
+TOGGLE_KEY=prefix+alt+k
+# 0.6.5 and older bound the toggle here. herdr silently drops a built-in default whose key a user
+# binding takes, and this one is swap-pane-up.
+OLD_TOGGLE_KEY=prefix+shift+k
 # the same file herdr reads
 CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/herdr/config.toml"
 BACKUP="" CREATED=0
@@ -81,6 +85,8 @@ $out"
 key_used() { # key
   k=$(printf '%s' "$1" | sed 's/[+.]/\\&/g')
   grep -Eq "=[[:space:]]*[\"']$k[\"']" "$CONFIG" 2>/dev/null && return 0
+  # built-in defaults that herdr --default-config doesn't list
+  case $1 in prefix+shift+[hjkl]) return 0 ;; esac
   herdr --default-config 2>/dev/null | grep -Eq "^#[[:space:]]*[a-z_]+[[:space:]]*=[[:space:]]*\"$k\""
 }
 
@@ -105,6 +111,66 @@ add_binding() { # action key description
     "$2" "$ID" "$1" "$3" >> "$CONFIG"
   ADDED="$ADDED $2"
   info "$3: added $2"
+}
+
+# The toggle's [[keys.command]] blocks: "<all> <made by an older version of this script>".
+toggle_blocks() {
+  awk -v cmd="$ID.toggle" -v old="$OLD_TOGGLE_KEY" '
+    function val(s) { sub(/^[^=]*=[[:space:]]*/, "", s); gsub(/^["\047]|["\047][[:space:]]*$/, "", s); return s }
+    function flush() { if (c == cmd) { all++; if (k == old && d == "toggle cheat sheet") ours++ } k = c = d = ""; inb = 0 }
+    /^[[:space:]]*\[/ { flush(); if ($0 ~ /^[[:space:]]*\[\[keys\.command\]\]/) inb = 1; next }
+    inb && /^[[:space:]]*key[[:space:]]*=/ { k = val($0) }
+    inb && /^[[:space:]]*command[[:space:]]*=/ { c = val($0) }
+    inb && /^[[:space:]]*description[[:space:]]*=/ { d = val($0) }
+    END { flush(); print all + 0, ours + 0 }' "$CONFIG"
+}
+
+# Removes the old toggle block (drop) or gives it the new key (rekey).
+rewrite_toggle_block() { # drop|rekey
+  tmp="$CONFIG.tmp.$$"
+  cp "$CONFIG" "$tmp"
+  awk -v cmd="$ID.toggle" -v old="$OLD_TOGGLE_KEY" -v new="$TOGGLE_KEY" -v mode="$1" '
+    function val(s) { sub(/^[^=]*=[[:space:]]*/, "", s); gsub(/^["\047]|["\047][[:space:]]*$/, "", s); return s }
+    function flush() {
+      hit = (c == cmd && k == old && d == "toggle cheat sheet")
+      for (i = 1; i <= n; i++) {
+        if (hit && mode == "drop") continue
+        if (hit && buf[i] ~ /^[[:space:]]*key[[:space:]]*=/) buf[i] = "key = \"" new "\""
+        print buf[i]
+      }
+      n = 0; k = c = d = ""; inb = 0
+    }
+    /^[[:space:]]*\[/ { flush(); if ($0 ~ /^[[:space:]]*\[\[keys\.command\]\]/) inb = 1 }
+    inb {
+      buf[++n] = $0
+      if ($0 ~ /^[[:space:]]*key[[:space:]]*=/) k = val($0)
+      if ($0 ~ /^[[:space:]]*command[[:space:]]*=/) c = val($0)
+      if ($0 ~ /^[[:space:]]*description[[:space:]]*=/) d = val($0)
+      next
+    }
+    { print }
+    END { flush() }' "$tmp" > "$CONFIG"
+  rm -f "$tmp"
+}
+
+MIGRATED=""
+migrate_toggle_key() {
+  [ -f "$CONFIG" ] || return 0
+  set -- $(toggle_blocks)
+  [ "$2" -gt 0 ] || return 0
+  if [ "$1" -gt "$2" ]; then
+    backup_config
+    rewrite_toggle_block drop
+    MIGRATED=drop
+    info "toggle cheat sheet: removed $OLD_TOGGLE_KEY, which replaced herdr's swap-pane-up; your other toggle key stays"
+  elif key_used "$TOGGLE_KEY"; then
+    info "toggle cheat sheet: $OLD_TOGGLE_KEY replaces herdr's swap-pane-up, and $TOGGLE_KEY is taken. To free swap-pane-up, give the toggle another key in $CONFIG"
+  else
+    backup_config
+    rewrite_toggle_block rekey
+    MIGRATED=rekey
+    info "toggle cheat sheet: moved from $OLD_TOGGLE_KEY to $TOGGLE_KEY, so herdr's swap-pane-up works again"
+  fi
 }
 
 reload_config() {
@@ -165,14 +231,16 @@ esac
 # --- key bindings
 mkdir -p "$(dirname "$CONFIG")"
 if [ ! -f "$CONFIG" ]; then : > "$CONFIG"; CREATED=1; fi
-add_binding toggle prefix+shift+k "toggle cheat sheet"
+migrate_toggle_key
+add_binding toggle "$TOGGLE_KEY" "toggle cheat sheet"
 add_binding search prefix+f "search files"
 check_config
-if [ -n "$ADDED" ]; then reload_config; fi
+if [ -n "$ADDED" ] || [ -n "$MIGRATED" ]; then reload_config; fi
 
 say ""
 say "Done. New tabs and workspaces get the cheat sheet on the right."
-case " $ADDED " in *" prefix+shift+k "*) say "  prefix+shift+k   show or hide it in the current tab" ;; esac
+case " $ADDED " in *" $TOGGLE_KEY "*) say "  $TOGGLE_KEY     show or hide it in the current tab" ;; esac
+if [ "$MIGRATED" = rekey ]; then say "  $TOGGLE_KEY     show or hide it in the current tab (moved from $OLD_TOGGLE_KEY)"; fi
 case " $ADDED " in *" prefix+f "*) say "  prefix+f         search the project's files" ;; esac
 if [ -n "$BACKUP" ]; then say "  your previous config: $BACKUP"; fi
 say "  uninstall: curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | sh -s -- --uninstall"

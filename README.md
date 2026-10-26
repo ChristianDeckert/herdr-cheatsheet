@@ -10,7 +10,7 @@ curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/m
 
 One command installs the plugin, adds its two keys to herdr's config and reloads it. See [Install](#install) for what it does and the manual steps.
 
-- The panel opens on the right of every new tab. `prefix+shift+k` shows or hides it, `prefix+f` searches the project's files.
+- The panel opens on the right of every new tab. `prefix+alt+k` shows or hides it, `prefix+f` searches the project's files.
 - Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
 - Click a section's heading to collapse or expand it, or its `hide` button to hide it; all panels follow. Hidden sections and tool groups wait in the `hidden` list at the bottom. An app's section opens when the app starts.
 - Keys inside the panel: `/` search files · `e` open with · `r` refresh · `b` logo · `t` colors · `q` close · `u` update.
@@ -54,6 +54,7 @@ Rows marked `▸` run when you click them:
 
 - **Recipes** run inside the panel. Press any key to return, and Ctrl-C stops long-running ones.
 - **herdr actions** run through herdr: new tab, split, zoom, next/previous pane, move tab, close pane, tab or workspace, reload config and more. Close rows act immediately. Rename and new-worktree rows ask for a name inside the panel.
+- **Moving panes**: the swap rows (`prefix+shift+h/j/k/l`) trade the active pane with its neighbor. herdr has no keys for moving a pane, so these rows are marked `click`: *move below neighbor* stacks the active pane under the pane beside it, *move right of neighbor* puts a stacked pane back side by side, and *move to new tab* / *new workspace* take it out of the tab. The pane keeps running; herdr moves a pane within its tab only by way of another tab, which the panel opens and closes again. A click never swaps or stacks with a cheat-sheet panel.
 - **Your custom bindings** run as configured: plugin actions through herdr, `pane` and `popup` commands inside the panel, `shell` commands in the background.
 - **Agents** take you to that agent's pane, in any workspace.
 - **Tools and devtools** type their command at a shell prompt in the tab, without Enter, with the cursor on the first `{placeholder}` to fill in. See [Tools and devtools](#tools-devtools-and-packages).
@@ -154,7 +155,7 @@ The script ([`install.sh`](install.sh)):
 3. adds the two key bindings below to `~/.config/herdr/config.toml` (or `$XDG_CONFIG_HOME/herdr/config.toml`), each only if that action isn't bound yet and the key is free. A taken key is skipped, and the script prints the block to add with another key. It backs up the file first, lets `herdr config check` validate the result, and restores the backup if herdr rejects it
 4. reloads herdr's config
 
-Running it again updates the plugin and changes nothing else. Options go after `sh -s --`:
+Running it again updates the plugin and changes nothing else, with one exception: versions up to 0.6.5 bound the toggle to `prefix+shift+k`. herdr gives a binding of yours priority over its own default on the same key without a warning, and that key is herdr's "swap pane up". The script moves that binding to `prefix+alt+k`, or removes it when the toggle has another key too. Options go after `sh -s --`:
 
 | Option | Effect |
 |---|---|
@@ -173,7 +174,7 @@ herdr shows the manifest and scripts before installing. Add the keys to `~/.conf
 
 ```toml
 [[keys.command]]
-key = "prefix+shift+k"
+key = "prefix+alt+k"
 type = "plugin_action"
 command = "christiandeckert.cheatsheet.toggle"
 description = "toggle cheat sheet"
@@ -185,7 +186,7 @@ command = "christiandeckert.cheatsheet.search"
 description = "search files"
 ```
 
-The second binding starts the file search from anywhere in the tab and puts the focus in the panel.
+The second binding starts the file search from anywhere in the tab and puts the focus in the panel. Pick keys herdr doesn't use itself: a binding on one of herdr's keys silently replaces it. `herdr --default-config` lists most of them; it leaves out `prefix+shift+h/j/k/l`, which swap the focused pane with its neighbor.
 
 The panel appears in new workspaces and tabs right away. To add it to the tab you're in, press the toggle key. To add it to tab 1 of every existing workspace, restart the server:
 
