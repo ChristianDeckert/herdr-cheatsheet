@@ -357,25 +357,25 @@ render_agents() {
 
 # Sets DIR (project dir to show), TPANE (main pane in this tab that actions target), TAB_PANES (this
 # tab's panes besides the panels) and AGENTS_FP (what the agents section shows), from one pane list.
+# The panel follows its own tab: herdr marks only the one focused pane of the active tab, so the pane
+# last focused here is remembered (LAST_FOCUSED), and DIR is that pane's directory now.
 locate() {
   local all
   local -a r
   all=$("$H" pane list 2>/dev/null) || return
   ALLPANES=$all
-  # actions need a pane in this tab: the last focused one if it lives here, else the first non-sheet pane
-  r=("${(@f)$(print -r -- "$all" | cs_jq -r --arg w "$HERDR_WORKSPACE_ID" --arg t "$HERDR_TAB_ID" \
-      --arg s "$HERDR_PANE_ID" --arg l "$LAST_FOCUSED" "$CS_SHEET_JQ"'
-    def dir: .foreground_cwd // .cwd // "";
-    .result.panes as $all | [$all[] | select(.pane_id != $s and (sheet | not))] as $p
-    | ([$p[] | select(.focused and .workspace_id == $w)][0]) as $f
-    | [$p[] | select(.tab_id == $t)] as $tab
+  r=("${(@f)$(print -r -- "$all" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
+      --arg l "$LAST_FOCUSED" "$CS_SHEET_JQ"'
+    .result.panes as $all
+    | [$all[] | select(.tab_id == $t and .pane_id != $s and (sheet | not))] as $tab
+    | ([$tab[] | select(.focused)][0]) as $f
     | ([$tab[] | select(.pane_id == ($f.pane_id // $l))] + $tab | first) as $tp
-    | ($f.pane_id // ""), ($f | if . then dir else "" end), ($tp.pane_id // ""), ($tp | if . then dir else "" end),
+    | ($f.pane_id // ""), ($tp.pane_id // ""), ($tp | if . then .foreground_cwd // .cwd // "" else "" end),
       ([$all[] | select((.agent // "") != "") | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")),
       ([$tab[].pane_id] | join(" "))')}")
-  [[ -n $r[2] ]] && { DIR=$r[2]; LAST_FOCUSED=$r[1] }
-  TPANE=$r[3] AGENTS_FP=$r[5] TAB_PANES=(${=r[6]})
-  DIR=${DIR:-${r[4]:-$PWD}}
+  [[ -n $r[1] ]] && LAST_FOCUSED=$r[1]
+  TPANE=$r[2] AGENTS_FP=$r[4] TAB_PANES=(${=r[5]})
+  DIR=${r[3]:-${DIR:-$PWD}}
 }
 
 find_up() { # dir name... -> REPLY: first match walking up
