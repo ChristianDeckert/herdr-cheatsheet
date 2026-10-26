@@ -1,5 +1,5 @@
 # name: devtools
-# source: man xcodebuild ; xcodebuild -help ; xcrun simctl help (list/boot/install/launch/erase) ; swift package --help ; swift build --help ; swift test --help ; pod --help ; pod repo --help ; xcode-select --help ; https://developer.android.com/build/building-cmdline ; https://developer.android.com/studio/test/command-line ; https://developer.android.com/studio/write/lint ; https://developer.android.com/tools/adb ; adb --help ; emulator -help ; sdkmanager --help ; https://docs.python.org/3/library/venv.html ; https://pip.pypa.io/en/stable/cli/pip_install/ ; https://docs.astral.sh/uv/reference/cli/ ; https://bundler.io/man/bundle-update.1.html ; https://guides.rubygems.org/command-reference/#gem-install ; https://doc.rust-lang.org/cargo/commands/cargo-run.html ; https://doc.rust-lang.org/clippy/usage.html ; https://rust-lang.github.io/rustup/basics.html ; https://docs.npmjs.com/cli/commands ; https://docs.docker.com/reference/cli/docker/ ; https://docs.docker.com/reference/cli/docker/compose/ ; https://git-scm.com/docs ; https://pkg.go.dev/cmd/go
+# source: man xcodebuild ; xcodebuild -help ; xcrun simctl help (list/boot/install/launch/erase) ; swift package --help ; swift build --help ; swift test --help ; pod --help ; pod repo --help ; xcode-select --help ; https://developer.android.com/build/building-cmdline ; https://developer.android.com/studio/test/command-line ; https://developer.android.com/studio/write/lint ; https://developer.android.com/tools/adb ; adb --help ; emulator -help ; sdkmanager --help ; flutter <command> --help (doctor, create, pub, devices, emulators, run, test, analyze, build, clean, upgrade) ; dart format --help ; dart fix --help ; https://docs.python.org/3/library/venv.html ; https://pip.pypa.io/en/stable/cli/pip_install/ ; https://docs.astral.sh/uv/reference/cli/ ; https://bundler.io/man/bundle-update.1.html ; https://guides.rubygems.org/command-reference/#gem-install ; https://doc.rust-lang.org/cargo/commands/cargo-run.html ; https://doc.rust-lang.org/clippy/usage.html ; https://rust-lang.github.io/rustup/basics.html ; https://docs.npmjs.com/cli/commands ; https://docs.docker.com/reference/cli/docker/ ; https://docs.docker.com/reference/cli/docker/compose/ ; https://git-scm.com/docs ; https://pkg.go.dev/cmd/go
 ## ios @macos
 xcodebuild -list|list schemes and targets
 xcodebuild -scheme {scheme} -destination 'platform=iOS Simulator,name={device}' build|build for simulator
@@ -33,6 +33,26 @@ adb reverse tcp:{port} tcp:{port}|forward device port to host
 emulator -list-avds|list virtual devices
 emulator -avd {name}|start emulator
 sdkmanager --list|list sdk packages
+## flutter
+flutter doctor|check toolchain and devices
+flutter create {name}|new flutter project
+flutter pub get|get dependencies
+flutter pub add {package}|add a dependency
+flutter pub outdated|show outdated dependencies
+flutter devices|list connected devices
+flutter emulators --launch {emulator}|start an emulator
+flutter run|run app (r reload, R restart)
+flutter run -d {device}|run on a specific device
+flutter test|run tests
+flutter analyze|analyze the project
+dart format .|format dart code
+dart fix --apply|apply automated fixes
+flutter build apk --release|build release apk
+flutter build appbundle|build android app bundle
+flutter build ipa|build ios archive (macOS)
+flutter build web|build web app
+flutter clean|delete build outputs
+flutter upgrade|upgrade the flutter sdk
 ## python
 python3 -m venv .venv|create virtual env in .venv
 source .venv/bin/activate|activate venv (bash/zsh)

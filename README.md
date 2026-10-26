@@ -33,7 +33,7 @@ Below the logo, the file search always comes first, then the key sections of the
 - **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects; without a justfile it says so, and like any section it can be hidden.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
 - **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli. See [Tools and devtools](#tools-devtools-and-packages).
-- **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Python, Ruby, Rust, Node.js, Docker, Git and Go.
+- **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Flutter, Python, Ruby, Rust, Node.js, Docker, Git and Go.
 - **Packages**: install, remove, search, update and clean up with Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak. Only the package managers available on your system show by default; the others wait in the hidden list.
 - **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, foot, urxvt, xterm, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
 - **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab. Without agents the section says so.
@@ -305,6 +305,7 @@ Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` an
 |---|---|
 | ios | xcodebuild (list, build, test, clean), simulators (`xcrun simctl`), Swift Package Manager, CocoaPods |
 | android | Gradle wrapper tasks, adb, emulator, sdkmanager |
+| flutter | doctor, create, pub, devices and emulators, run, test, analyze, `dart format` / `fix`, builds (apk, app bundle, ipa, web), clean, upgrade |
 | python, ruby, rust, node, go | environments, dependencies, build, run, test, lint |
 | docker | build, run, ps, logs, exec, compose |
 | git | status, log graph, stash, interactive rebase, amend, clean dry run, new branch |
