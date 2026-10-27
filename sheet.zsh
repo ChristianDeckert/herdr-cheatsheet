@@ -461,8 +461,9 @@ render_herdr() {
     swap_pane_down "swap with pane below" herdr:swap:down
     swap_pane_up "swap with pane above" herdr:swap:up
     swap_pane_right "swap with pane right" herdr:swap:right
-    click:stack_down "move below neighbor" herdr:stack:down
-    click:stack_right "move right of neighbor" herdr:stack:right
+    click:stack_down_left "move below left pane" herdr:stack:down:left
+    click:stack_down_right "move below right pane" herdr:stack:down:right
+    click:stack_right "move right of neighbor" herdr:stack:right:up:down
     click:move_tab "move to new tab" herdr:move:tab
     click:move_workspace "move to new workspace" herdr:move:workspace
     cycle_pane_next "next pane" herdr:pane:1
@@ -1372,17 +1373,18 @@ new_worktree() {
   [[ -n "$REPLY" ]] && run_inline "${(q)H} worktree create --cwd ${(q)DIR} --branch ${(q)REPLY} --focus" wait
 }
 
-# Shows an error in the panel's last row for a moment.
+# Shows an error in the panel's last row for a moment, as a full-width bar so it stands out from the
+# footer it covers.
 fail() { # message
-  printf '\e[%d;1H\e[2K\e[31m %s\e[0m' "$LINES" "${1[1,COLS-2]}"
-  sleep 2
+  printf '\e[%d;1H\e[2K\e[1;7;31m %-*s\e[0m' "$LINES" $(( COLS - 1 )) "${1[1,COLS-2]}"
+  sleep 3
   FP=""
 }
 
 # Like fail, for a message that isn't an error.
 notice() { # message
-  printf '\e[%d;1H\e[2K%s %s%s' "$LINES" "$K" "${1[1,COLS-2]}" "$R"
-  sleep 2
+  printf '\e[%d;1H\e[2K\e[1;7;33m %-*s\e[0m' "$LINES" $(( COLS - 1 )) "${1[1,COLS-2]}"
+  sleep 3
   FP=""
 }
 
@@ -1419,12 +1421,17 @@ pane_neighbor() { # +1 | -1
   api pane.focus "{\"pane_id\":\"$next\"}"
 }
 
-# REPLY: the pane next to the active pane in a direction, if it's one of this tab's panes, so a click
-# never swaps or stacks with a cheat-sheet panel.
-pane_beside() { # left|right|up|down
+# REPLY: the pane next to the active pane in a direction, a cheat-sheet panel included.
+pane_at() { # left|right|up|down
   REPLY=$("$H" pane neighbor --pane "$TPANE" --direction "$1" 2>/dev/null |
     jq -r '.result.neighbor.neighbor_pane_id // empty')
-  [[ -n $REPLY ]] && (( ${TAB_PANES[(Ie)$REPLY]} ))
+  [[ -n $REPLY ]]
+}
+
+# Like pane_at, but only one of this tab's panes, so a swap never moves a cheat-sheet panel off the
+# tab's right edge.
+pane_beside() { # left|right|up|down
+  pane_at "$1" && (( ${TAB_PANES[(Ie)$REPLY]} ))
 }
 
 swap_pane() { # left|right|up|down
@@ -1434,16 +1441,17 @@ swap_pane() { # left|right|up|down
   herdr_do pane swap --pane "$TPANE" --direction "$1"
 }
 
-# Puts the active pane below (down) or to the right of the pane beside it. herdr doesn't move a pane
-# within its tab, so it goes through a new tab and back; its process keeps running.
-stack_pane() { # down|right
+# Puts the active pane below (down) or to the right of the first pane found in the given directions,
+# which may be a cheat-sheet panel. herdr doesn't move a pane within its tab, so it goes through a new
+# tab and back; its process keeps running.
+stack_pane() { # down|right direction...
   [[ -n "$TPANE" ]] || return
-  local target="" d out p tmp
-  local -a dirs=(left right)
-  [[ $1 == right ]] && dirs=(up down)
-  for d in $dirs; do pane_beside "$d" && { target=$REPLY; break }; done
+  local split=$1 target="" d out p tmp
+  shift
+  for d; do pane_at "$d" && { target=$REPLY; break }; done
   if [[ -z $target ]]; then
-    [[ $1 == down ]] && notice "no pane beside the active pane" || notice "no pane above or below the active pane"
+    typeset -A where=(left "left of" right "right of" up above down below)
+    (( $# == 1 )) && notice "no pane $where[$1] the active pane" || notice "no pane above or below the active pane"
     return
   fi
   out=$("$H" pane move "$TPANE" --new-tab --no-focus 2>&1)
@@ -1453,7 +1461,7 @@ stack_pane() { # down|right
     fail "can't move the pane: $(print -r -- "$out" | jq -r '.error.message // empty' 2>/dev/null || print -r -- "$out")"
     return
   fi
-  herdr_do pane move "$p" --tab "$HERDR_TAB_ID" --target-pane "$target" --split "$1" --focus
+  herdr_do pane move "$p" --tab "$HERDR_TAB_ID" --target-pane "$target" --split "$split" --focus
   # herdr closes the emptied tab, unless the new-tab hook gave it a cheat sheet meanwhile
   [[ -n $tmp ]] && { "$H" tab close "$tmp" >/dev/null 2>&1; ( sleep 2; "$H" tab close "$tmp" >/dev/null 2>&1 ) &! }
 }
@@ -1527,7 +1535,7 @@ execute() { # action
     herdr:close_workspace) herdr_do workspace close "$HERDR_WORKSPACE_ID" ;;
     herdr:pane:*) pane_neighbor "${a##*:}" ;;
     herdr:swap:*) swap_pane "${a##*:}" ;;
-    herdr:stack:*) stack_pane "${a##*:}" ;;
+    herdr:stack:*) stack_pane ${(s.:.)a#herdr:stack:} ;;
     herdr:move:*) move_pane_away "${a##*:}" ;;
     herdr:move_tab:*) move_tab "${a##*:}" ;;
     herdr:workspace:*) workspace_neighbor "${a##*:}" ;;
