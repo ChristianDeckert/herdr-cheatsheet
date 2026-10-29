@@ -1,6 +1,6 @@
 id = "christiandeckert.cheatsheet"
 name = "Cheat Sheet"
-version = "0.6.7"
+version = "0.6.8"
 min_herdr_version = "0.9.4"
 description = "Clickable side panel with the project's just recipes plus herdr and terminal keybindings"
 platforms = ["macos", "linux"]

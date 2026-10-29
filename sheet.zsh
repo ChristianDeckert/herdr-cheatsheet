@@ -219,12 +219,13 @@ show_item() { # id
 
 # A row's "hide" button: clicks from this screen column on run the hide action instead of the row's.
 typeset -A HIDE_AT HIDE_DO
-hide_button() { # id plain-length -> sets REPLY to the padding plus the button, or nothing if too narrow
-  local pad=$(( COLS - 1 - $2 - 4 ))
+hide_button() { # id plain-length [action label] -> sets REPLY to the padding plus the button, or nothing if too narrow
+  local label=${4:-hide}
+  local pad=$(( COLS - 1 - $2 - ${#label} ))
   REPLY=""
   (( pad < 1 )) && return
-  HIDE_AT[$(( ${#OUT} + 1 ))]=$(( $2 + pad + 1 )) HIDE_DO[$(( ${#OUT} + 1 ))]="hide:$1"
-  REPLY="${(l:pad:: :)}${D}hide${R}"
+  HIDE_AT[$(( ${#OUT} + 1 ))]=$(( $2 + pad + 1 )) HIDE_DO[$(( ${#OUT} + 1 ))]=${3:-hide:$1}
+  REPLY="${(l:pad:: :)}${D}$label${R}"
 }
 
 # A section heading with ▾ (open) or ▸ (collapsed); clicking it toggles the section, and its "hide"
@@ -370,27 +371,53 @@ render_agents() {
   (( n > max )) && line "   ${D}+$(( n - max )) more${R}"
 }
 
+# The workspace's first tab, which the other tabs offer to follow (render_follow). herdr's tab numbers
+# aren't positions, so it's the first of the tab list, read at most every 10 seconds.
+FIRST_TAB="" FIRST_TAB_AT=0
+first_tab() {
+  (( EPOCHSECONDS - FIRST_TAB_AT < 10 )) && return
+  FIRST_TAB_AT=$EPOCHSECONDS
+  FIRST_TAB=$("$H" tab list --workspace "$HERDR_WORKSPACE_ID" 2>/dev/null | jq -r '.result.tabs[0].tab_id // empty')
+}
+
+# Plugin panes run in their plugin's root, so a pane there isn't where the user works.
+PLUGIN_ROOTS=$("$H" plugin list --json 2>/dev/null |
+  jq -c '[.result.plugins[]?.plugin_root | select(. != null) | sub("/*$"; "/")]' 2>/dev/null)
+[[ -n $PLUGIN_ROOTS ]] || PLUGIN_ROOTS='[]'
+
 # Sets DIR (project dir to show), TPANE (main pane in this tab that actions target), TAB_PANES (this
 # tab's panes besides the panels) and AGENTS_FP (what the agents section shows), from one pane list.
 # The panel follows its own tab: herdr marks only the one focused pane of the active tab, so the pane
 # last focused here is remembered (LAST_FOCUSED), and DIR is that pane's directory now.
+# For render_follow also LEAD_DIR (tab 1's directory, empty in tab 1), TAB_AGENT_COUNT and PANE_CWD
+# (the shell's directory of each of this tab's panes). tab 1's directory is its agent's, else that of
+# its first pane outside a plugin root: a developer's agent may well work in a plugin's root.
+typeset -A PANE_CWD
 locate() {
-  local all
+  local all l
   local -a r
   all=$("$H" pane list 2>/dev/null) || return
   ALLPANES=$all
+  first_tab
   r=("${(@f)$(print -r -- "$all" | cs_jq -r --arg t "$HERDR_TAB_ID" --arg s "$HERDR_PANE_ID" \
-      --arg l "$LAST_FOCUSED" "$CS_SHEET_JQ"'
+      --arg l "$LAST_FOCUSED" --arg ft "$FIRST_TAB" --argjson roots "$PLUGIN_ROOTS" "$CS_SHEET_JQ"'
+    def plugin: ((.cwd // "") + "/") as $c | any($roots[]; . as $r | $c | startswith($r));
     .result.panes as $all
     | [$all[] | select(.tab_id == $t and .pane_id != $s and (sheet | not))] as $tab
     | ([$tab[] | select(.focused)][0]) as $f
     | ([$tab[] | select(.pane_id == ($f.pane_id // $l))] + $tab | first) as $tp
+    | [$all[] | select($ft != $t and .tab_id == $ft and (sheet | not))] as $lead
     | ($f.pane_id // ""), ($tp.pane_id // ""), ($tp | if . then .foreground_cwd // .cwd // "" else "" end),
       ([$all[] | select((.agent // "") != "") | "\(.pane_id):\(.agent_status):\(.terminal_title_stripped)"] | join(",")),
-      ([$tab[].pane_id] | join(" "))')}")
+      ([$tab[].pane_id] | join(" ")),
+      ([$lead[] | select((.agent // "") != "")] + [$lead[] | select(plugin | not)] | first | .cwd // ""),
+      ([$tab[] | select((.agent // "") != "")] | length),
+      ($tab[] | "\(.pane_id)\t\(.cwd // "")")')}")
   [[ -n $r[1] ]] && LAST_FOCUSED=$r[1]
   TPANE=$r[2] AGENTS_FP=$r[4] TAB_PANES=(${=r[5]})
   DIR=${r[3]:-${DIR:-$PWD}}
+  LEAD_DIR=$r[6] TAB_AGENT_COUNT=${r[7]:-0} PANE_CWD=()
+  for l in "${(@)r[8,-1]}"; do [[ -n $l ]] && PANE_CWD[${l%%$'\t'*}]=${l#*$'\t'}; done
 }
 
 find_up() { # dir name... -> REPLY: first match walking up
@@ -755,20 +782,40 @@ render_cmdfile() { # name (tools, devtools, packages)
   done
 }
 
-# A pane of this tab at a shell prompt, the main pane first. At the prompt, the shell itself is the
-# foreground process group (a running command gets its own group, even one herdr can't inspect, like
-# top), and every foreground process is a shell (the editor tab's vi shares its script's group).
+# reply: a pane's foreground process group, its shell's pid, then "argv0<TAB>argv1" per foreground process.
+proc_lines() { # pane
+  reply=("${(@f)$("$H" pane process-info --pane "$1" 2>/dev/null | jq -r '.result.process_info
+    | ((.foreground_process_group_id // "") | tostring), ((.shell_pid // "") | tostring),
+      (.foreground_processes[]? | "\(.argv0)\t\(.argv[1] // "")")' 2>/dev/null)}")
+}
+
+# At a shell prompt, the shell itself is the foreground process group (a running command gets its own
+# group, even one herdr can't inspect, like top), and every foreground process is a shell (the editor
+# tab's vi shares its script's group). A shell with a script argument runs that script: plugin panes
+# (this panel, jira-light) are started that way, without a shell of their own.
+SHELLS=(zsh bash fish sh dash ksh nu)
+prompt_procs() { # group shell-pid "argv0<TAB>argv1"...
+  [[ -n $1 && $1 == $2 ]] || return
+  shift 2
+  local l n
+  for l; do
+    n=${${l%%$'\t'*}#-}
+    (( ${SHELLS[(Ie)${n:t}]} )) || return
+    [[ -z ${l#*$'\t'} || ${l#*$'\t'} == -* ]] || return
+  done
+}
+
+at_prompt() { # pane
+  proc_lines "$1"
+  prompt_procs "${(@)reply}"
+}
+
+# A pane of this tab at a shell prompt, the main pane first.
 shell_pane() {
   local p
   local -a panes=($TAB_PANES)
   (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
-  for p in $panes; do
-    "$H" pane process-info --pane "$p" 2>/dev/null | jq -e '.result.process_info as $i
-      | $i.foreground_process_group_id == $i.shell_pid
-        and ([$i.foreground_processes[]?.argv0 | ltrimstr("-") | split("/") | last]
-             | all(IN("zsh", "bash", "fish", "sh", "dash", "ksh", "nu")))' >/dev/null 2>&1 &&
-      { REPLY=$p; return 0 }
-  done
+  for p in $panes; do at_prompt "$p" && { REPLY=$p; return 0 }; done
   return 1
 }
 
@@ -818,20 +865,21 @@ typeset -A APP_PANE
 # and the terminal's foreground group comes from the shell (tpgid). ps adds that group's processes.
 # Listing all processes is slow, so it only runs for a foreground group that isn't the pane's shell and
 # in which herdr's list has no known app, once per group (PS_SEEN).
+# Also sets LAZYGIT_PANE and IDLE_PANES (at a shell prompt) for render_follow, also with CHEATSHEET_APPS=off.
 typeset -A PS_SEEN
 detect_apps() {
   setopt local_options extended_glob
-  APPS=() APP_PANE=()
-  [[ $CHEATSHEET_APPS == off ]] && return
+  APPS=() APP_PANE=() LAZYGIT_PANE="" IDLE_PANES=()
+  [[ $CHEATSHEET_APPS == off && $CHEATSHEET_FOLLOW == off ]] && return
   local p id pg l
   local -a lines found
   local -A seen
   local -a panes=($TAB_PANES)
   (( ${panes[(Ie)$TPANE]} )) && panes=($TPANE ${panes:#$TPANE})
   for p in $panes; do
-    lines=("${(@f)$("$H" pane process-info --pane "$p" 2>/dev/null | jq -r '.result.process_info
-      | ((.foreground_process_group_id // "") | tostring), ((.shell_pid // "") | tostring),
-        (.foreground_processes[]? | "\(.argv0)\t\(.argv[1] // "")")' 2>/dev/null)}")
+    proc_lines "$p"
+    lines=("${(@)reply}")
+    prompt_procs "${(@)lines}" && IDLE_PANES+=($p)
     pg=$lines[1]
     [[ -z $pg && -n $lines[2] ]] && pg=${$(ps -o tpgid= -p "$lines[2]" 2>/dev/null)// /}
     found=()
@@ -849,6 +897,8 @@ detect_apps() {
     fi
     seen[$p:$pg]=1
     for id in $found; do
+      [[ $id == lazygit && -z $LAZYGIT_PANE ]] && LAZYGIT_PANE=$p
+      [[ $CHEATSHEET_APPS == off ]] && continue
       (( ${APPS[(Ie)$id]} )) || { APPS+=($id); APP_PANE[$id]=$p }
     done
   done
@@ -961,6 +1011,7 @@ build() {
   load_herdr_keys
   render_banner "$1"
   render_update
+  render_follow
   render_search
   render_apps
   local s order=($SECTION_ORDER $APP_ORDER "${(L)TERMHEAD%% *}:terminal")
@@ -1474,6 +1525,79 @@ move_pane_away() { # tab|workspace
   (( ${#rest} )) || herdr_do tab close "$HERDR_TAB_ID"
 }
 
+# Tab 1 sets the workspace's directory. A tab with no agent offers to take its lazygit and the shells at
+# a prompt there when they're anywhere else, subfolders included; "ignore" lasts until tab 1 moves on.
+# lazygit only follows into a git repository: elsewhere it stops at a "create a repo? (y/n)" question.
+FOLLOW_IGNORED="" LEAD_CHECKED="" LEAD_IN_REPO=0
+lead_in_repo() {
+  if [[ $LEAD_DIR != $LEAD_CHECKED ]]; then
+    LEAD_CHECKED=$LEAD_DIR LEAD_IN_REPO=0
+    git -C "$LEAD_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1 && LEAD_IN_REPO=1
+  fi
+  (( LEAD_IN_REPO ))
+}
+
+follow_panes() { # -> reply
+  local p
+  local -a panes=($IDLE_PANES)
+  reply=()
+  [[ -n $LAZYGIT_PANE ]] && lead_in_repo && panes=($LAZYGIT_PANE $panes)
+  for p in $panes; do
+    [[ $PANE_CWD[$p] != $LEAD_DIR ]] && (( ! ${reply[(Ie)$p]} )) && reply+=($p)
+  done
+}
+
+render_follow() {
+  [[ $CHEATSHEET_FOLLOW == off || -z $LEAD_DIR || $LEAD_DIR == $FOLLOW_IGNORED ]] && return
+  (( TAB_AGENT_COUNT )) && return
+  follow_panes
+  (( ${#reply} )) || return
+  local dir=${LEAD_DIR/#$HOME/~} lead="follow tab 1 → " max text plain
+  # the row: " ▸ ", the text, at least one space and "ignore"
+  max=$(( COLS - 1 - 3 - ${#lead} - 1 - 6 ))
+  (( max < 4 )) && max=4
+  (( ${#dir} > max )) && dir="…${dir[-(max - 1),-1]}"
+  text="$lead$dir" plain=" ▸ $text"
+  line ""
+  hide_button follow ${#plain} follow:ignore ignore
+  OUT+=(" ${B}▸${R} $B$K$text$R$REPLY") PLAIN+=("$plain") ACT+=("follow:go")
+}
+
+# lazygit can't change its repo, so it quits (esc closes an open popup first) and starts again.
+quit_lazygit() { # pane
+  "$H" pane send-keys "$1" esc esc >/dev/null 2>&1
+  "$H" pane send-text "$1" q >/dev/null 2>&1
+  repeat 30; do at_prompt "$1" && return; sleep 0.1; done
+  return 1
+}
+
+follow_lead() {
+  local dir=$LEAD_DIR p
+  local -i moved=0 busy=0
+  [[ -n $dir ]] || return
+  follow_panes
+  for p in $reply; do
+    if [[ $p == $LAZYGIT_PANE ]]; then
+      # two commands, so the shell titles the pane "lazygit" again
+      if quit_lazygit "$p" && herdr_do pane run "$p" "cd ${(q)dir}" && herdr_do pane run "$p" lazygit; then
+        moved+=1
+      else
+        busy+=1
+      fi
+    elif at_prompt "$p"; then
+      # ^U clears anything typed at the prompt, so it doesn't run together with the cd
+      "$H" pane send-text "$p" $'\x15' >/dev/null 2>&1
+      if herdr_do pane run "$p" "cd ${(q)dir}"; then moved+=1; else busy+=1; fi
+    else
+      busy+=1
+    fi
+  done
+  NEED_POLL=1
+  if (( busy )); then notice "followed tab 1 with $moved pane(s); $busy busy, left as they are"
+  else notice "followed tab 1 to ${dir/#$HOME/~}"
+  fi
+}
+
 # herdr closes a tab together with its last pane; the sheet doesn't count, so do the same.
 close_pane() {
   [[ -n "$TPANE" ]] || return
@@ -1535,6 +1659,8 @@ execute() { # action
     herdr:close_workspace) herdr_do workspace close "$HERDR_WORKSPACE_ID" ;;
     herdr:pane:*) pane_neighbor "${a##*:}" ;;
     herdr:swap:*) swap_pane "${a##*:}" ;;
+    follow:go) follow_lead ;;
+    follow:ignore) FOLLOW_IGNORED=$LEAD_DIR ;;
     herdr:stack:*) stack_pane ${(s.:.)a#herdr:stack:} ;;
     herdr:move:*) move_pane_away "${a##*:}" ;;
     herdr:move_tab:*) move_tab "${a##*:}" ;;
@@ -1692,6 +1818,7 @@ while :; do
     stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" "$COLLAPSED_FILE" \
       "$HIDDEN_FILE" ${JF:+"$JF"} ${JF:+"${JF:h}/$CHEATSHEET_ALIAS_FILE"}
     fp="$DIR|$LINES|$COLS|$AGENTS_FP|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$REPLY"
+    fp+="|$LEAD_DIR|$FOLLOW_IGNORED|$TAB_AGENT_COUNT|$LAZYGIT_PANE|${IDLE_PANES[*]}|${(kv)PANE_CWD}"
   fi
   [[ "$fp" != "$FP" ]] && { build "$DIR"; FP=$fp; paint }
   INPUT_WAIT=$(( POLL_EVERY - (EPOCHREALTIME - LAST_POLL) ))

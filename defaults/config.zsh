@@ -14,6 +14,10 @@
 # CHEATSHEET_AGENTS=all
 # CHEATSHEET_AGENTS_MAX=8
 
+# Other tabs offer to follow tab 1 when it moved to another directory: a click restarts their lazygit
+# and cd's their shells at a prompt there. ask, off.
+# CHEATSHEET_FOLLOW=ask
+
 # Update notice: on (ask GitHub for a newer version when a panel starts and on refresh), off.
 # CHEATSHEET_UPDATE_CHECK=on
 

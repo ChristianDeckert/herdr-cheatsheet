@@ -13,6 +13,7 @@ One command installs the plugin, adds its two keys to herdr's config and reloads
 - The panel opens on the right of every new tab. `prefix+alt+k` shows or hides it, `prefix+f` searches the project's files.
 - Click any row marked `▸` to run it: just recipes, herdr actions, your own bindings, agents, the keys of the app running in the tab (vim, lazygit, Claude Code and 18 more), and ready-made ffmpeg and compression commands, which get typed at your shell prompt.
 - Click a section's heading to collapse or expand it, or its `hide` button to hide it; all panels follow. Hidden sections and tool groups wait in the `hidden` list at the bottom. An app's section opens when the app starts.
+- When tab 1 moves to another directory, the other tabs offer to follow it: a click on `follow tab 1 → <dir>` restarts their lazygit there (inside a git repository) and `cd`s their shells that sit at a prompt. Busy panes and tabs running an agent are left alone; `ignore` hides the row until tab 1 moves again.
 - Keys inside the panel: `/` search files · `e` open with · `r` refresh · `b` logo · `t` colors · `q` close · `u` update.
 - Settings live in `config.zsh` in `$(herdr plugin config-dir christiandeckert.cheatsheet)`.
 - Needs herdr 0.9.4+, zsh and jq on macOS or Linux; just, fzf and rg are optional.
@@ -214,6 +215,7 @@ On first run the plugin copies `config.zsh` into its config directory. Print the
 | `CHEATSHEET_TERMINAL_KEYS` | — | Show your own `keys\|description` file instead of a built-in list |
 | `CHEATSHEET_TERMINAL_NAME` | — | Heading for that file |
 | `CHEATSHEET_EDITOR` | — | Editor for files opened from the search. The panel's **open with** choice overrides it. Without either: `$VISUAL`, `$EDITOR`, then the first installed terminal editor (fresh, nvim, hx, micro, emacs, kak, vim, nano), then `vi`. GUI editors (`code`, `cursor`, `zed`, `subl`, `xed`, …) open in their own window, superfile (`spf`) with the file selected in its folder |
+| `CHEATSHEET_FOLLOW` | `ask` | `off` turns off the `follow tab 1` row |
 | `CHEATSHEET_APPS` | `on` | `off` hides the key sections of running apps |
 | `CHEATSHEET_TOOLS` | `on` | `off` hides the tools, devtools and packages sections (or hide them, or single groups, with their `hide` buttons) |
 | `CHEATSHEET_ALIAS_FILE` | `.project.zsh` | Optional file in a project root whose `alias x='just recipe'` lines appear next to the recipes |
