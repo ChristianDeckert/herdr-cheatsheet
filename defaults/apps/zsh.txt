@@ -1,0 +1,25 @@
+# name: zsh
+# source: man zshzle (STANDARD WIDGETS; emacs keymap defaults, checked with `zsh -f -c 'bindkey -e; bindkey'`, zsh 5.9) ; https://github.com/ohmyzsh/ohmyzsh/blob/master/lib/key-bindings.zsh (Ctrl+X Ctrl+E, Up/Down prefix search) ; https://github.com/ohmyzsh/ohmyzsh/blob/master/lib/cli.zsh (omz reload runs exec zsh)
+## config
+$ exec zsh|reload config (restart shell)
+## move
+Ctrl+A / Ctrl+E|line start / line end
+Alt+B / Alt+F|word back / word forward
+## edit
+Ctrl+W|delete word before cursor
+Alt+D|delete word after cursor
+Ctrl+U|delete whole line
+Ctrl+K|delete to end of line
+Ctrl+Y|paste deleted text
+Ctrl+_|undo
+Alt+.|insert last word of previous command
+Alt+Q|park line, run another first
+Ctrl+X Ctrl+E|edit command in $EDITOR (oh-my-zsh)
+## history
+Ctrl+R|search history
+Up / Down|previous / next command
+## other
+Tab|complete
+Alt+H|help for the command (run-help)
+Ctrl+L|clear screen
+Ctrl+C|cancel line

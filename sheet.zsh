@@ -108,9 +108,11 @@ load_herdr_keys() {
   fmt_key "${KEYS[prefix]:-ctrl+b}"; PREFIX=$REPLY
 }
 
-row() { # key desc color [action]
+row() { # key desc color [action] [button-action [button-label]]
   local kw=${KW:-13} mark=" " desc=$2 key
   local dw=$(( COLS - kw - 5 ))
+  # room for the button, so a long description can't push it out of view
+  [[ -n "$5" ]] && (( dw -= 7 ))
   (( dw < 8 )) && dw=8
   [[ -n "$4" ]] && mark="▸"
   key=${1[1,kw]} desc=${desc[1,dw]}
@@ -119,7 +121,24 @@ row() { # key desc color [action]
   if [[ -n "$4" ]]; then printf -v out " ${B}%s${R} %s%-${kw}s%s %s" "$mark" "$3" "$key" "$R" "$desc"
   else printf -v out "   ${D}%-${kw}s %s${R}" "$key" "$desc"
   fi
+  [[ -n "$5" ]] && { hide_button "" ${#plain} "$5" "${6:-remove}"; out+=$REPLY }
   OUT+=("$out") PLAIN+=("$plain") ACT+=("$4")
+}
+
+# The dim "+ add" row at the end of a section that takes the user's own entries.
+add_row() { # label action
+  OUT+=("   ${D}+ $1${R}") PLAIN+=("   + $1") ACT+=("$2")
+}
+
+# A custom.txt entry as a key row: its key (or "$ command" without one) and description; a click runs
+# the command at a shell prompt.
+custom_row() { # line remove-action
+  custom_fields "$1" || { row "?" "not key|command|description: $1" "$M" "" "$2"; return }
+  local k=$reply[1] c=$reply[2] d=$reply[3]
+  if [[ -n $k ]]; then custom_key_label "$k"; k=$REPLY; else k="\$ $c"; fi
+  if [[ -n $c ]] && ! is_action "$c"; then row "$k" "$d" "$K" "term:$c" "$2"
+  else row "$k" "$d" "$M" "" "$2"
+  fi
 }
 
 line() { OUT+=("$1"); PLAIN+=(""); ACT+=("") }
@@ -145,6 +164,243 @@ list_set() { # file id on|off
 }
 
 set_collapsed() { list_set "$COLLAPSED_FILE" "$1" "$2" }
+
+# The user's own keys and commands, added and removed in the panel. It lives in the config dir, so
+# plugin updates keep it; "## <section id>" starts a section's entries, one "key|command|description"
+# per line.
+CUSTOM_FILE="$CS_CONFIG_DIR/custom.txt"
+CUSTOM_HEADER='# Your own keys and commands for the cheat sheet, added and removed in the panel.
+# "## <section>" (app:<id>, terminal, tools, devtools, packages, herdr) starts a section; then one
+# "key|command|description" per line. Key or command may be empty; a key with a command is a
+# herdr hotkey, kept in herdr'"'"'s config.toml by the panel. "@<action>" as command binds a herdr action.'
+
+custom_entries() { # section -> reply: its lines
+  local l cur=""
+  reply=()
+  [[ -f $CUSTOM_FILE ]] || return
+  while IFS= read -r l; do
+    case $l in
+      "## "*) cur=${l#"## "} ;;
+      "#"*|"") ;;
+      *) [[ $cur == "$1" ]] && reply+=("$l") ;;
+    esac
+  done < "$CUSTOM_FILE"
+}
+
+# reply: key, command and description of a custom.txt line. The command may contain |, so the key ends
+# at the first | and the description starts after the last one. Fails for a line with fewer than two |.
+custom_fields() { # line
+  [[ $1 == *'|'*'|'* ]] || { reply=(); return 1 }
+  local rest=${1#*|}
+  reply=("${1%%|*}" "${rest%|*}" "${1##*|}")
+}
+
+# "@clear_pane" binds one of herdr's own actions instead of running a command.
+is_action() { # command
+  [[ $1 == @?* ]] && (( ${+DEFAULT_KEYS[${1#@}]} ))
+}
+
+# A custom key as shown in the key column: herdr syntax as ⌃B ⌥e, the portable Ctrl+/Alt+/Shift+ as
+# ⌃⌥⇧ on macOS.
+custom_key_label() { # key
+  fmt_key "$1"
+  [[ $CTRL_SYM == "⌃" ]] && { REPLY=${REPLY//Ctrl+/⌃}; REPLY=${REPLY//Alt+/⌥}; REPLY=${REPLY//Shift+/⇧} }
+}
+
+custom_write() { # lines...
+  print -rl -- "$@" > "$CUSTOM_FILE.tmp" && mv "$CUSTOM_FILE.tmp" "$CUSTOM_FILE" ||
+    { fail "can't write $CUSTOM_FILE"; return 1 }
+}
+
+# Appends a line after the section's last entry, starting the section if it has none yet.
+custom_add() { # section line
+  local -a lines
+  local i last=0 cur=""
+  [[ -f $CUSTOM_FILE ]] && lines=("${(@f)$(<$CUSTOM_FILE)}") || lines=("${(@f)CUSTOM_HEADER}")
+  for (( i = 1; i <= ${#lines}; i++ )); do
+    case $lines[i] in
+      "## "*) cur=${lines[i]#"## "}; [[ $cur == "$1" ]] && last=$i ;;
+      "#"*|"") ;;
+      *) [[ $cur == "$1" ]] && last=$i ;;
+    esac
+  done
+  if (( last )); then lines=("${(@)lines[1,last]}" "$2" "${(@)lines[last+1,-1]}")
+  else lines+=("" "## $1" "$2")
+  fi
+  hotkeys_sync "${lines[@]}" && custom_write "${lines[@]}"
+}
+
+# Removes the section's first line that matches exactly.
+custom_del() { # section line
+  local -a lines
+  local i cur=""
+  [[ -f $CUSTOM_FILE ]] && lines=("${(@f)$(<$CUSTOM_FILE)}")
+  for (( i = 1; i <= ${#lines}; i++ )); do
+    case $lines[i] in
+      "## "*) cur=${lines[i]#"## "} ;;
+      *)
+        if [[ $cur == "$1" && $lines[i] == "$2" ]]; then
+          lines[i]=()
+          hotkeys_sync "${lines[@]}" && custom_write "${lines[@]}"
+          return
+        fi ;;
+    esac
+  done
+  fail "not in custom.txt any more: $2"
+}
+
+# Hotkeys (custom entries with a key and a command) and action keys live in herdr's config.toml, in
+# blocks between these markers that the panel rewrites from custom.txt.
+HK_BEGIN='# >>> cheat sheet: keys added in the panel; change them there or in its custom.txt'
+HK_END='# <<< cheat sheet'
+
+# REPLY: the shell line a [[keys.command]] runs to send a command to the focused pane, like run_command.
+hotkey_command() { # command
+  setopt local_options extended_glob
+  local h='"${HERDR_BIN_PATH:-herdr}"' p='"$HERDR_ACTIVE_PANE_ID"' before=${1%%\{[a-z_]##\}*}
+  if [[ $before == $1 ]]; then
+    REPLY="$h pane send-keys $p ctrl+u && $h pane send-text $p ${(qq)1} && $h pane send-keys $p enter"
+  else
+    REPLY="$h pane send-text $p ${(qq)1} && $h pane send-keys $p${(l:$(( ${#1} - ${#before} )) * 5:: left:)}"
+  fi
+}
+
+toml_str() { # text -> REPLY: a TOML basic string
+  local s=${1//\\/\\\\}
+  REPLY="\"${s//\"/\\\"}\""
+}
+
+# reply: config.toml's lines with the hotkeys and action keys of the given custom.txt lines in marked
+# blocks, replacing the old ones. herdr allows one [keys] table, so action keys go into the user's own
+# when there is one.
+hotkeys_config() { # custom lines...
+  setopt local_options extended_glob
+  local -a cfg out acts cmds
+  local l k c d skip=0 i
+  [[ -f $CONFIG ]] && cfg=("${(@f)$(<$CONFIG)}")
+  for l; do
+    [[ $l == "#"* || -z $l ]] && continue
+    custom_fields "$l" || continue
+    k=$reply[1] c=$reply[2] d=$reply[3]
+    [[ -n $k && -n $c ]] || continue
+    toml_str "$k"; k=$REPLY
+    if is_action "$c"; then
+      acts+=("${c#@} = $k")
+    else
+      hotkey_command "$c"; toml_str "$REPLY"; c=$REPLY
+      toml_str "$d"
+      cmds+=("" "[[keys.command]]" "key = $k" 'type = "shell"' "command = $c" "description = $REPLY")
+    fi
+  done
+  for l in "${cfg[@]}"; do
+    if [[ $l == "# >>> cheat sheet"* ]]; then skip=1
+    elif (( skip )); then [[ $l == "# <<< cheat sheet"* ]] && skip=0
+    else out+=("$l")
+    fi
+  done
+  while (( ${#out} )) && [[ -z $out[-1] ]]; do out[-1]=(); done
+  if (( ${#acts} )); then
+    i=${out[(I)\[keys\][[:space:]]#]}
+    if (( i )); then out=("${(@)out[1,i]}" "$HK_BEGIN" "${acts[@]}" "$HK_END" "${(@)out[i+1,-1]}"); acts=()
+    else acts=("[keys]" "${acts[@]}")
+    fi
+  fi
+  (( ${#acts} + ${#cmds} )) && out+=("" "$HK_BEGIN" "${acts[@]}" "${cmds[@]}" "$HK_END")
+  reply=("${out[@]}")
+}
+
+# Puts the hotkeys of the given custom.txt lines into herdr's config.toml: herdr checks the new file
+# first, the old one is kept as config.toml.bak-cheatsheet, then herdr reloads it.
+hotkeys_sync() { # custom lines...
+  local file=${CONFIG:A} new out
+  hotkeys_config "$@"
+  new=${(F)reply}
+  if [[ -f $file ]]; then [[ $new == "$(<$file)" ]] && return 0
+  else [[ -z $new ]] && return 0
+  fi
+  print -r -- "$new" > "$file.cheatsheet-tmp" || { fail "can't write $file.cheatsheet-tmp"; return 1 }
+  if ! out=$(HERDR_CONFIG_PATH="$file.cheatsheet-tmp" "$H" config check 2>&1); then
+    rm -f "$file.cheatsheet-tmp"
+    fail "herdr rejected the key: ${(j: :)${(f)out}[2,-1]}"
+    return 1
+  fi
+  if [[ -f $file ]] && ! cp -p "$file" "$file.bak-cheatsheet"; then
+    rm -f "$file.cheatsheet-tmp"
+    fail "can't back up $file"
+    return 1
+  fi
+  mv "$file.cheatsheet-tmp" "$file" || { fail "can't write $file"; return 1 }
+  herdr_do server reload-config
+}
+
+# Key and description of every [[keys.command]] block in herdr's config, then its type, command and 1
+# when the panel wrote it, tab-separated.
+command_bindings() {
+  awk 'function flush(){ if(k!="") print k"\t"d"\t"t"\t"c"\t"m; k=d=t=c="" }
+       function val(s){ sub(/^[a-z_]+ *= */,"",s); if(s ~ /^'"'''"'/){ sub(/^'"'''"'/,"",s); sub(/'"'''"' *$/,"",s) }
+                        else if(s ~ /^"/){ sub(/^"/,"",s); sub(/" *$/,"",s); gsub(/\\"/,"\"",s); gsub(/\\\\/,"\\",s) }
+                        else if(s ~ /^'"'"'/){ sub(/^'"'"'/,"",s); sub(/'"'"' *$/,"",s) }
+                        return s }
+       /^# >>> cheat sheet/{ flush(); m=1; next }
+       /^# <<< cheat sheet/{ flush(); m=0; next }
+       /^\[\[keys\.command\]\]/{ flush(); b=1; next }
+       /^\[/{ flush(); b=0 }
+       b && /^key *=/{ k=val($0) } b && /^description *=/{ d=val($0) }
+       b && /^type *=/{ t=val($0) } b && /^command *=/{ c=val($0) }
+       END{ flush() }' m=0 "$CONFIG" 2>/dev/null
+}
+
+# REPLY: the key in herdr's syntax, for a key that runs something. Fails, showing why, for a key
+# sequence or a key that's bound already: herdr would silently drop one of the two bindings.
+hotkey_key() { # key
+  local key=${(L)1} name k d
+  [[ $key == *[[:space:]]* ]] && { fail "a hotkey is one chord, like ctrl+alt+e or prefix+g"; return 1 }
+  for name in ${(k)KEYS}; do
+    [[ $KEYS[$name] == $key ]] && { fail "$key is already bound to herdr's $name"; return 1 }
+  done
+  # zsh runs the loop of a pipeline in this shell, so its return leaves the function
+  command_bindings | while IFS=$'\t' read -r k d _; do
+    [[ $k == $key ]] && { fail "$key is already bound to: ${d:-a command}"; return 1 }
+  done
+  REPLY=$key
+}
+
+# Asks for a new entry inside this pane (key, command, description) and saves it.
+custom_prompt() { # section
+  local name=${1#app:} key cmd hint="like ctrl+alt+e or prefix+g"
+  [[ $1 == (app:*|terminal) ]] && hint+=", or one $name already has, like Ctrl+X Ctrl+R"
+  prompt_line "Add to $name — key (optional)" "$hint — Enter skips"
+  key=$REPLY
+  [[ $key == *'|'* ]] && { fail "a key can't contain |"; focus_main; return }
+  if [[ -n $key ]]; then
+    hint="with the key, a herdr hotkey sends it to the focused pane — Enter skips: the key just gets a description"
+  else
+    hint="Enter on empty cancels"
+  fi
+  prompt_line "Command sent to the terminal" "{placeholder} marks what to fill in; $hint"
+  cmd=$REPLY
+  [[ -z $key && -z $cmd ]] && { focus_main; return }
+  if [[ -n $key && -n $cmd ]]; then hotkey_key "$key" || { focus_main; return }; key=$REPLY; fi
+  prompt_line "Description" "what it does (required)"
+  if [[ -z $REPLY ]]; then fail "a description is required — nothing added"
+  elif [[ $REPLY == *'|'* ]]; then fail "a description can't contain |"
+  else custom_add "$1" "$key|$cmd|$REPLY"
+  fi
+  focus_main
+}
+
+# Gives one of herdr's actions that has no key a key of the user's choice.
+custom_bind_prompt() { # action label
+  prompt_line "Key for herdr's $2" "like ctrl+alt+e or prefix+g — Enter on empty cancels"
+  [[ -n $REPLY ]] && hotkey_key "$REPLY" && custom_add herdr "$REPLY|@$1|$2"
+  focus_main
+}
+
+custom_remove_prompt() { # section line
+  prompt_line "Remove from ${1#app:}?" "$2 — y removes it, Enter keeps it"
+  [[ $REPLY == [yY]* ]] && custom_del "$1" "$2"
+  focus_main
+}
 
 # Sections in CLOSED_DEFAULT (the hidden list, apps that aren't running) start collapsed; for those the
 # collapsed list stores "<id>:open" once one is opened.
@@ -525,7 +781,15 @@ render_herdr() {
     reload_config "reload config" herdr:reload_config
     detach "detach" ""
   )
-  local name desc act k d t c PENDING_GROUP=""
+  local name desc act k d t c m l PENDING_GROUP=""
+  local -a unbound
+  # action keys bound in the panel ("key|@action|label" in custom.txt) get a remove button
+  local -A bound_here
+  custom_entries herdr
+  local -a mine=("${reply[@]}")
+  for l in "${mine[@]}"; do
+    custom_fields "$l" && is_action "$reply[2]" && bound_here[${reply[2]#@}]=$l
+  done
   for name desc act in "${curated[@]}"; do
     if [[ $name == "## "* ]]; then PENDING_GROUP=${name#"## "}; continue; fi
     if [[ $name == focus_pane_hjkl ]]; then
@@ -543,33 +807,43 @@ render_herdr() {
       row "$REPLY" "$desc" "$K" "$act"
       continue
     fi
-    [[ -n "${KEYS[$name]}" ]] || continue
+    if [[ -z "${KEYS[$name]}" ]]; then
+      (( ${+DEFAULT_KEYS[$name]} )) && unbound+=("$name" "$desc")
+      continue
+    fi
     flush_group "$G"
+    l=""
+    [[ -n ${bound_here[$name]} ]] && l="custom:del:herdr"$'\t'"$bound_here[$name]"
     fmt_key "${KEYS[$name]}"
-    row "$REPLY" "$desc" "$K" "$act"
+    row "$REPLY" "$desc" "$K" "$act" "$l"
   done
   PENDING_GROUP="your keys"
-  # custom [[keys.command]] bindings: key, description, type, command
-  awk 'function flush(){ if(k!="") print k"\t"d"\t"t"\t"c; k=d=t=c="" }
-       function val(s){ sub(/^[a-z_]+ *= */,"",s); if(s ~ /^'"'''"'/){ sub(/^'"'''"'/,"",s); sub(/'"'''"' *$/,"",s) }
-                        else if(s ~ /^"/){ sub(/^"/,"",s); sub(/" *$/,"",s) } else if(s ~ /^'"'"'/){ sub(/^'"'"'/,"",s); sub(/'"'"' *$/,"",s) }
-                        return s }
-       /^\[\[keys\.command\]\]/{ flush(); b=1; next }
-       /^\[/{ flush(); b=0 }
-       b && /^key *=/{ k=val($0) } b && /^description *=/{ d=val($0) }
-       b && /^type *=/{ t=val($0) } b && /^command *=/{ c=val($0) }
-       END{ flush() }' "$CONFIG" 2>/dev/null |
-    while IFS=$'\t' read -r k d t c; do
-      case $t in
-        plugin_action) act="plugin:$c" ;;
-        pane|popup) act="cmd:$c" ;;
-        shell) act="bg:$c" ;;
-        *) act="" ;;
-      esac
-      flush_group "$G"
-      fmt_key "$k"
-      row "$REPLY" "${d:-custom command}" "$K" "$act"
+  # the user's [[keys.command]] bindings; the hotkeys added in the panel follow from custom.txt
+  command_bindings | while IFS=$'\t' read -r k d t c m; do
+    (( m )) && continue
+    case $t in
+      plugin_action) act="plugin:$c" ;;
+      pane|popup) act="cmd:$c" ;;
+      shell) act="bg:$c" ;;
+      *) act="" ;;
+    esac
+    flush_group "$G"
+    fmt_key "$k"
+    row "$REPLY" "${d:-custom command}" "$K" "$act"
+  done
+  for l in "${mine[@]}"; do
+    custom_fields "$l" && is_action "$reply[2]" && continue
+    flush_group "$G"
+    custom_row "$l" "custom:del:herdr"$'\t'"$l"
+  done
+  if (( ${#unbound} )) && ! is_hidden herdr/unbound; then
+    PENDING_GROUP=unbound
+    for name desc in "${unbound[@]}"; do
+      flush_group "$G" herdr/unbound
+      row "" "$desc" "$M" "" "custom:bind:$name"$'\t'"$desc" bind
     done
+  fi
+  add_row "add key or command" "custom:add:herdr"
 }
 
 # REPLY: the name a key list gives itself in its "# name:" line.
@@ -610,22 +884,42 @@ render_terminal() {
 # portable Ctrl+/Alt+/Shift+ notation is shown as ⌃⌥⇧ on macOS.
 render_keyfile() { # file heading section-id [app-id]
   section "$3" "$2" || return
-  local -a keys descs acts
-  local l k d PENDING_GROUP=""
-  while IFS= read -r l; do
+  local -a keys descs acts dels src=("${(@f)$(<$1)}")
+  local l k c d del="" PENDING_GROUP="" n=${#src} j
+  # the user's own entries follow as a last group; their rows get a remove button (dels)
+  custom_entries "$3"
+  (( ${#reply} )) && src+=("## yours" "${reply[@]}")
+  for (( j = 1; j <= ${#src}; j++ )); do
+    l=$src[j]
     case $l in
-      "## "*) keys+=("##") descs+=("${l#"## "}") acts+=("") ;;
+      "## "*) keys+=("##") descs+=("${l#"## "}") acts+=("") dels+=("") ;;
       "#"*|"") ;;
       *)
         k=${l%%|*} d=${${l#*|}:#$l}
+        if (( j > n )); then
+          # the user's "key|command|description"; one with a command runs it at a shell prompt
+          del="custom:del:$3"$'\t'"$l"
+          if ! custom_fields "$l"; then
+            keys+=("?") descs+=("not key|command|description: $l") acts+=("") dels+=("$del")
+            continue
+          fi
+          k=$reply[1] c=$reply[2] d=$reply[3]
+          if [[ -n $c ]]; then
+            if [[ -n $k ]]; then custom_key_label "$k"; k=$REPLY; else k="\$ $c"; fi
+            is_action "$c" && c="" || c="term:$c"
+            keys+=("$k") descs+=("$d") acts+=("$c") dels+=("$del")
+            continue
+          fi
+        fi
         if [[ -n $4 ]]; then
           app_entries "$k" "$d" "$4"
           keys+=("${E_KEYS[@]}") descs+=("${E_DESCS[@]}") acts+=("${E_ACTS[@]}")
+          repeat ${#E_KEYS}; do dels+=("$del"); done
         else
-          keys+=("$k") descs+=("$d") acts+=("")
+          keys+=("$k") descs+=("$d") acts+=("") dels+=("$del")
         fi ;;
     esac
-  done < "$1"
+  done
   if [[ -n $4 && $CTRL_SYM == "⌃" ]]; then
     keys=("${(@)keys//Ctrl+/⌃}") keys=("${(@)keys//Alt+/⌥}") keys=("${(@)keys//Shift+/⇧}")
   fi
@@ -637,10 +931,11 @@ render_keyfile() { # file heading section-id [app-id]
   for i in {1..${#keys}}; do
     if [[ $keys[$i] == "##" ]]; then PENDING_GROUP=$descs[$i]; continue; fi
     flush_group "$G"
-    if [[ -n $acts[$i] ]]; then row "$keys[$i]" "$descs[$i]" "$K" "$acts[$i]"
-    else row "$keys[$i]" "$descs[$i]" "$M"
+    if [[ -n $acts[$i] ]]; then row "$keys[$i]" "$descs[$i]" "$K" "$acts[$i]" "$dels[$i]"
+    else row "$keys[$i]" "$descs[$i]" "$M" "" "$dels[$i]"
     fi
   done
+  add_row "add key or command" "custom:add:$3"
 }
 
 typeset -a E_KEYS E_DESCS E_ACTS
@@ -648,12 +943,18 @@ typeset -a E_KEYS E_DESCS E_ACTS
 # Rows for one app list entry, in E_KEYS, E_DESCS and E_ACTS. "Ctrl+Z / Ctrl+Y|undo / redo" pairs keys
 # with actions and becomes one row each ("Ctrl+PgUp / PgDn" carries Ctrl over), as does "h j k l"
 # with four descriptions. "Esc Esc" and "Space f" are sent as sequences. "F9 / k|kill process"
-# lists alternatives for one action and sends the first one that can be sent.
+# lists alternatives for one action and sends the first one that can be sent. "$ exec zsh" is a shell
+# command: Ctrl+U clears a half-typed line, then the command runs (it can't contain |, the step separator).
 app_entries() { # keys desc app-id
   setopt local_options extended_glob
   E_KEYS=() E_DESCS=() E_ACTS=()
   local -a ks=("${(@s: / :)1}") ds=("${(@s: / :)2}") ws
   local i mods tok st
+  if [[ $1 == '$ '?* ]]; then
+    send_action "$3" "k=ctrl+u|t=${1#'$ '}|k=enter"
+    E_KEYS+=("${1#'$ '}") E_DESCS+=("$2") E_ACTS+=("$REPLY")
+    return
+  fi
   if (( ${#ks} > 1 && ${#ks} == ${#ds} )); then
     mods=${(M)ks[1]#((Ctrl|Alt|Shift)+)#}
     for i in {1..${#ks}}; do
@@ -755,9 +1056,8 @@ send_keys_to() { # pane;steps
 # below it, its {placeholders} in the accent color. A click on either types the command at a shell
 # prompt in this tab, without Enter.
 render_cmdfile() { # name (tools, devtools, packages)
-  setopt local_options extended_glob
   [[ $CHEATSHEET_TOOLS == off ]] && return
-  local f=$(cs_cmd_file "$1") l cmd desc grp hdr PENDING_GROUP=""
+  local f=$(cs_cmd_file "$1") l grp hdr PENDING_GROUP=""
   local -A body
   [[ -n $f ]] || return
   section "$1" "$1" || return
@@ -773,13 +1073,42 @@ render_cmdfile() { # name (tools, devtools, packages)
     is_hidden "$1/$grp" && continue
     PENDING_GROUP=$grp
     for l in "${(@f)body[$grp]%$'\n'}"; do
-      # split at the last |: commands may contain pipes, descriptions don't
-      cmd=${l%|*} desc=${${l##*|}:#$l}
       flush_group "$G" "$1/$grp"
-      OUT+=(" ${B}▸${R} $K${desc:-$cmd}$R") PLAIN+=(" ▸ ${desc:-$cmd}") ACT+=("tool:$cmd")
-      OUT+=("     $D${cmd//(#m)\{[a-z_]##\}/$R$K$MATCH$R$D}$R") PLAIN+=("     $cmd") ACT+=("tool:$cmd")
+      # split at the last |: commands may contain pipes, descriptions don't
+      tool_rows "${l%|*}" "${${l##*|}:#$l}" "tool:${l%|*}"
     done
   done
+  # the user's own entries come last, whatever their names; their commands run on click
+  custom_entries "$1"
+  local -a mine=("${reply[@]}")
+  PENDING_GROUP=yours
+  for l in "${mine[@]}"; do
+    flush_group "$G"
+    if ! custom_fields "$l"; then row "?" "not key|command|description: $l" "$M" "" "custom:del:$1"$'\t'"$l"; continue; fi
+    if [[ -z $reply[2] ]] || is_action "$reply[2]"; then
+      tool_rows "" "$reply[3]" "" "custom:del:$1"$'\t'"$l" "$reply[1]"
+    else
+      tool_rows "$reply[2]" "$reply[3]" "term:$reply[2]" "custom:del:$1"$'\t'"$l" "$reply[1]"
+    fi
+  done
+  add_row "add key or command" "custom:add:$1"
+}
+
+# A command list entry: the description row (with the key, if any, dim after it), then the command dim,
+# its {placeholders} in the accent color. An entry without a command is a description row only.
+tool_rows() { # command description action [remove-action] [key]
+  setopt local_options extended_glob
+  local cmd=$1 desc=${2:-$1} key="" btn="" mark=" "
+  [[ -n $5 ]] && { custom_key_label "$5"; key="  $REPLY" }
+  if [[ -n $4 ]]; then
+    desc=${desc[1,COLS-14-${#key}]}
+    hide_button "" $(( ${#desc} + ${#key} + 3 )) "$4" remove
+    btn=$REPLY
+  fi
+  [[ -n $3 ]] && mark="${B}▸${R}"
+  OUT+=(" $mark $K$desc$R$D$key$R$btn") PLAIN+=(" ${mark//$'\e'\[[0-9;]#m/} $desc$key") ACT+=("$3")
+  [[ -n $cmd ]] || return 0
+  OUT+=("     $D${cmd//(#m)\{[a-z_]##\}/$R$K$MATCH$R$D}$R") PLAIN+=("     $cmd") ACT+=("$3")
 }
 
 # reply: a pane's foreground process group, its shell's pid, then "argv0<TAB>argv1" per foreground process.
@@ -845,6 +1174,23 @@ type_tool() { # command
   fi
 }
 
+# Runs the user's command at a shell prompt in this tab, Ctrl+U clearing a half-typed line first. One
+# with a {placeholder} is only typed, so it can be filled in.
+run_command() { # command
+  setopt local_options extended_glob
+  [[ $1 == *\{[a-z_]##\}* ]] && { type_tool "$1"; return }
+  if shell_pane; then
+    local p=$REPLY
+    herdr_do pane send-keys "$p" ctrl+u && herdr_do pane send-text "$p" "$1" && herdr_do pane send-keys "$p" enter ||
+      return
+    api pane.focus "{\"pane_id\":\"$p\"}"
+  elif copy_text "$1"; then
+    notice "no shell prompt in this tab: command copied"
+  else
+    fail "no shell prompt in this tab, and no pbcopy, wl-copy or xclip to copy the command"
+  fi
+}
+
 # Apps whose keys get a section while they run in this tab: process name -> key list.
 typeset -A APP_OF=(
   fresh fresh  vi vim  vim vim  nvim vim  view vim  vimdiff vim  hx helix  helix helix
@@ -866,6 +1212,8 @@ typeset -A APP_PANE
 # Listing all processes is slow, so it only runs for a foreground group that isn't the pane's shell and
 # in which herdr's list has no known app, once per group (PS_SEEN).
 # Also sets LAZYGIT_PANE and IDLE_PANES (at a shell prompt) for render_follow, also with CHEATSHEET_APPS=off.
+# A shell sits at a prompt in almost every tab, so zsh never counts as running (its section would always
+# be on top); APP_PANE[zsh] is just the first pane at a zsh prompt, where the zsh rows send their keys.
 typeset -A PS_SEEN
 detect_apps() {
   setopt local_options extended_glob
@@ -879,7 +1227,11 @@ detect_apps() {
   for p in $panes; do
     proc_lines "$p"
     lines=("${(@)reply}")
-    prompt_procs "${(@)lines}" && IDLE_PANES+=($p)
+    if prompt_procs "${(@)lines}"; then
+      IDLE_PANES+=($p)
+      [[ -z $APP_PANE[zsh] && $CHEATSHEET_APPS != off && ${${${lines[3]%%$'\t'*}#-}:t} == zsh ]] &&
+        APP_PANE[zsh]=$p
+    fi
     pg=$lines[1]
     [[ -z $pg && -n $lines[2] ]] && pg=${$(ps -o tpgid= -p "$lines[2]" 2>/dev/null)// /}
     found=()
@@ -1675,6 +2027,10 @@ execute() { # action
     send:*) send_keys_to "${a#send:}" ;;
     tool:*) type_tool "${a#tool:}" ;;
     section:*) toggle_section "${a#section:}" ;;
+    term:*) run_command "${a#term:}" ;;
+    custom:add:*) custom_prompt "${a#custom:add:}" ;;
+    custom:bind:*) a=${a#custom:bind:}; custom_bind_prompt "${a%%$'\t'*}" "${a#*$'\t'}" ;;
+    custom:del:*) a=${a#custom:del:}; custom_remove_prompt "${a%%$'\t'*}" "${a#*$'\t'}" ;;
     hide:*) hide_item "${a#hide:}" ;;
     unhide:*) show_item "${a#unhide:}" ;;
     editor:menu) (( EDITOR_MENU = ! EDITOR_MENU )); FP="" ;;
@@ -1811,12 +2167,19 @@ while :; do
     fi
     LAST_POLL=$EPOCHREALTIME NEED_POLL=0
   fi
+  # a hand edit of custom.txt reaches herdr's config here; the sync does nothing when it's up to date
+  stamp "$CUSTOM_FILE"
+  if [[ $REPLY != "$CUSTOM_STAMP" ]]; then
+    CUSTOM_STAMP=$REPLY
+    load_herdr_keys
+    if [[ -f $CUSTOM_FILE ]]; then hotkeys_sync "${(@f)$(<$CUSTOM_FILE)}"; else hotkeys_sync; fi
+  fi
   if (( SEARCH )); then
     stamp "$BANNER_FILE" "$COLORS_FILE"
     fp="search|$LINES|$COLS|$APPEARANCE|$QUERY|$SEL|$REPLY"
   else
     stamp "$CONFIG" "$TERMKEYS" "$UPDATE_FILE" "$BANNER_FILE" "$COLORS_FILE" "$EDITOR_STATE" "$COLLAPSED_FILE" \
-      "$HIDDEN_FILE" ${JF:+"$JF"} ${JF:+"${JF:h}/$CHEATSHEET_ALIAS_FILE"}
+      "$HIDDEN_FILE" "$CUSTOM_FILE" ${JF:+"$JF"} ${JF:+"${JF:h}/$CHEATSHEET_ALIAS_FILE"}
     fp="$DIR|$LINES|$COLS|$AGENTS_FP|$APPEARANCE|${APPS[*]}|${(kv)APP_PANE}|$REPLY"
     fp+="|$LEAD_DIR|$FOLLOW_IGNORED|$TAB_AGENT_COUNT|$LAZYGIT_PANE|${IDLE_PANES[*]}|${(kv)PANE_CWD}"
   fi

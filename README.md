@@ -30,13 +30,14 @@ Below the logo, the file search always comes first, then the key sections of the
 
 - **Logo**: "CHEATSHEET" in the ANSI Shadow style with a retro gradient, and the path of the project in this tab: the directory of the tab's pane you last worked in, updated as you `cd`. Narrow panels get a compact logo.
 - **File search**: a search field for the project's files. See [Search and open files](#search-and-open-files).
-- **App keys**: every installed app it knows has a section with its essential keys, collapsed until you open it. While the app runs in the tab, its section moves to the top and opens, and clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top) and AI agents (Claude Code, Codex). See [App keys](#app-keys).
+- **App keys**: every installed app it knows has a section with its essential keys, collapsed until you open it. While the app runs in the tab, its section moves to the top and opens, and clicking a key sends it to the app: editors (Fresh, vim, Helix, micro, nano), file managers (superfile, yazi, ranger, nnn, lf, Midnight Commander), git and DevOps tools (lazygit, tig, gitui, lazydocker, k9s), system monitors (htop, btop, top), AI agents (Claude Code, Codex) and the zsh line editor, with a click that reloads your zsh config. See [App keys](#app-keys).
 - **just recipes**: the recipes of the project you're working in, from the nearest `justfile`, with the shortcuts from an optional `.project.zsh` (`alias xb='just build'`) next to them. The section follows focus between projects; without a justfile it says so, and like any section it can be hidden.
 - **herdr keys**: herdr's defaults plus your `config.toml` overrides, grouped into tabs, panes, workspaces, agents and herdr itself, with your own `[[keys.command]]` bindings under "your keys".
 - **Tools**: ready-made commands for ffmpeg, tar, zip, gzip, xz, zstd, 7-Zip, bzip2 and brotli. See [Tools and devtools](#tools-devtools-and-packages).
 - **Devtools**: ready-made commands for iOS (xcodebuild, simulators, Swift Package Manager, CocoaPods), Android (Gradle, adb, emulator), Flutter, Python, Ruby, Rust, Node.js, Docker, Git and Go, the GitHub, GitLab and Bitbucket command lines, and linters and formatters (SwiftLint, SwiftFormat, swift-format, ktlint, detekt, Spotless, custom_lint, DCM, Prettier, ESLint, Ruff).
 - **Packages**: install, remove, search, update and clean up with Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak. Only the package managers available on your system show by default; the others wait in the hidden list.
 - **Terminal keys**: the default shortcuts of the terminal you're attached from (iTerm2, Terminal.app, Ghostty, WezTerm, kitty, Alacritty, Hyper, VS Code, GNOME Terminal, Konsole, foot, urxvt, xterm, Windows Terminal), detected automatically, with macOS and Linux variants. See [Terminal detection](#terminal-detection).
+- **Your own entries**: a `+ add key or command` row ends every key and command section, herdr's included. An entry has a description, plus a key, a command or both; a key with a command becomes a real herdr hotkey. herdr actions without a key are listed under "unbound", each with a `bind` button. Your entries show under "yours" with a `remove` button. See [Your own keys and commands](#your-own-keys-and-commands).
 - **Agents**: every agent across your workspaces with its status, blocked and finished ones first. `(here)` marks the ones in the current tab. Without agents the section says so.
 - **Panel controls**: refresh, hide or show the logo, switch colors, close.
 - **Update status**: `update to x.y.z` under the logo when a new version is out, otherwise `✓ up to date` at the bottom.
@@ -244,7 +245,7 @@ Inside herdr every pane reports `TERM_PROGRAM=herdr`, so the plugin looks at the
 | `windows-terminal` | Windows Terminal (WSL) | Linux |
 | `generic` | anything else | macOS, Linux |
 
-Every list contains defaults confirmed in the terminal's official documentation or default configuration; each file names its sources in a `# source:` line. If you've remapped keys, override a list: copy it from the plugin's `defaults/terminals/` into a `terminals/` folder inside the config directory, keep the file name (for example `terminals/ghostty.macos.txt`) and edit it. Format: a `# name: Heading` line, then one `keys|description` per line. A `## label` line starts a group.
+Every list contains defaults confirmed in the terminal's official documentation or default configuration; each file names its sources in a `# source:` line. To add a few keys, use the section's `+ add key or command` row (see [Your own keys and commands](#your-own-keys-and-commands)). If you've remapped keys, override a list: copy it from the plugin's `defaults/terminals/` into a `terminals/` folder inside the config directory, keep the file name (for example `terminals/ghostty.macos.txt`) and edit it. Format: a `# name: Heading` line, then one `keys|description` per line. A `## label` line starts a group.
 
 ## App keys
 
@@ -273,10 +274,11 @@ The panel asks herdr which processes run in the foreground of its tab's panes (`
 | monitor | top | `top` | `top.macos.txt`, `top.linux.txt` |
 | AI agent | Claude Code | `claude` | `claude.txt` |
 | AI agent | Codex | `codex` (also its npm launcher and platform builds) | `codex.txt` |
+| shell | zsh | (a pane at a zsh prompt) | `zsh.txt` |
 
-Agent sections appear in every tab where an agent runs, so a tab with Claude Code in its main pane always shows Claude Code's keys. Lists with an OS suffix (`top.macos.txt`) are picked for that OS; overrides can use the same suffix.
+Agent sections appear in every tab where an agent runs, so a tab with Claude Code in its main pane always shows Claude Code's keys. A shell waits at a prompt in almost every tab, so zsh's section never moves to the top. It stays a regular section, and its keys go to the tab's first pane at a zsh prompt, the main pane first. Lists with an OS suffix (`top.macos.txt`) are picked for that OS; overrides can use the same suffix.
 
-Each list contains default keys confirmed in the app's documentation or default config and names its sources in a `# source:` line. To adapt one to your own bindings, copy it from the plugin's `defaults/apps/` into an `apps/` folder inside the config directory and edit it there; same format as the terminal lists. Keys are written as `Ctrl+`, `Alt+` and `Shift+` and shown as `⌃ ⌥ ⇧` on macOS.
+Each list contains default keys confirmed in the app's documentation or default config and names its sources in a `# source:` line. To add a few keys of your own, use the section's `+ add key or command` row (see [Your own keys and commands](#your-own-keys-and-commands)). To adapt the whole list to your own bindings, copy it from the plugin's `defaults/apps/` into an `apps/` folder inside the config directory and edit it there; same format as the terminal lists. Keys are written as `Ctrl+`, `Alt+` and `Shift+` and shown as `⌃ ⌥ ⇧` on macOS.
 
 ### Clicking app keys
 
@@ -286,6 +288,7 @@ A click sends the row's key to the pane the app runs in, through `herdr pane sen
 - Entries that pair keys with actions (`Ctrl+Z / Ctrl+Y | undo / redo`) become one row per action. Entries listing alternative keys for one action (`F9 / k | kill process`) send the first key.
 - Key sequences such as `Esc Esc` or Helix's `Space f` are sent in order; search placeholders (`/text`) send just the `/` that opens the app's search prompt.
 - In vim and Helix every click sends Esc first, so a click never types into your file while insert mode is on.
+- Entries written as `$ command|description` are shell commands: a click clears the typed line (`Ctrl+U`), types the command and presses Enter. zsh's `$ exec zsh|reload config` restarts the shell, so it reads `.zshrc` again (what oh-my-zsh's `omz reload` does). The command can't contain `|`.
 - Ranges like `1-5` stay dimmed.
 
 macOS ships UW Pico as `/usr/bin/nano`. Its keys differ from GNU nano's, so the nano section counts as not installed until GNU nano is (for example `brew install nano`).
@@ -323,7 +326,45 @@ Placeholders are written in braces, `{input}`, `{output}`, `{dir}`, `{start}` an
 
 The packages section lists Homebrew, MacPorts, apt, dnf, pacman, zypper, snap and flatpak with install, remove, search, info, list, update, upgrade and cleanup commands; `sudo` is included where the tool needs root.
 
-Groups can be tagged with the platforms they run on and the command they need, for example `## pacman @linux ?pacman` or `## ios @macos`. A group whose platform doesn't match or whose command isn't installed starts in the hidden list, marked `(not on macos)` or `(port not installed)`, and a click there shows it anyway. Any other group can be hidden with the `hide` button on its line. To change a list, copy the plugin's `defaults/tools.txt`, `defaults/devtools.txt` or `defaults/packages.txt` into the config directory and edit it: `## group` lines (with optional `@platform` and `?command` tags) start a group, then one `command|description` per line. A command may contain `|` itself; the description is what follows the last one. The panel lists the groups alphabetically; the commands inside a group keep the file's order.
+Groups can be tagged with the platforms they run on and the command they need, for example `## pacman @linux ?pacman` or `## ios @macos`. A group whose platform doesn't match or whose command isn't installed starts in the hidden list, marked `(not on macos)` or `(port not installed)`, and a click there shows it anyway. Any other group can be hidden with the `hide` button on its line. To add a few commands of your own, use the section's `+ add key or command` row (see [Your own keys and commands](#your-own-keys-and-commands)). To change a list, copy the plugin's `defaults/tools.txt`, `defaults/devtools.txt` or `defaults/packages.txt` into the config directory and edit it: `## group` lines (with optional `@platform` and `?command` tags) start a group, then one `command|description` per line. A command may contain `|` itself; the description is what follows the last one. The panel lists the groups alphabetically; the commands inside a group keep the file's order.
+
+## Your own keys and commands
+
+Every key section (herdr, apps, zsh, the terminal) and every command section (tools, devtools, packages) ends with a `+ add key or command` row. A click asks inside the panel for three things:
+
+1. **Key** (optional): a herdr binding like `ctrl+alt+e` or `prefix+g`, or a key the app already has, like `Ctrl+X Ctrl+R`. Enter skips it.
+2. **Command** (sent to the terminal): it may contain `|` and `{placeholders}`. Enter skips it only when there's a key, which then just gets a description. With neither a key nor a command, nothing is added.
+3. **Description** (required): it can't contain `|`.
+
+What an entry does depends on what it has:
+
+- **Key and command**: a herdr hotkey. Pressing the key in any pane sends the command to the focused pane, whatever runs there. The key must be one chord in herdr's syntax (`Ctrl+Alt+E` is saved as `ctrl+alt+e`), and a key that's already bound is refused, because herdr would silently drop one of the two bindings.
+- **Command only**: a click runs it.
+- **Key only**: a reminder of a key that already does something. In an app or zsh section a click sends the key to the app, like the built-in rows.
+
+A command runs at a shell prompt in the tab: Ctrl+U clears a half-typed line, then the command and Enter. A command with a `{placeholder}` is only typed, with the cursor on the first placeholder, so you can fill it in. Without a shell prompt in the tab, a click copies the command.
+
+herdr actions without a key (clear pane, last pane, next workspace, next agent, …) are listed in the herdr section under "unbound". Their `bind` button asks for a key; the action then moves to its usual row, with its key and a `remove` button.
+
+Your entries appear in a "yours" group at the end of their section (in the herdr section: under "your keys"). Each has a `remove` button at the end of its row, which asks before it removes the entry. Built-in entries have no `remove` button; hide a whole section or group instead.
+
+The entries are stored in `custom.txt` in the config directory (`herdr plugin config-dir christiandeckert.cheatsheet`), so plugin updates keep them, and they stay on top of copied list overrides too. `## <section>` starts a section's entries, followed by one `key|command|description` per line. Key or command may be empty; the command may contain `|`, because the key ends at the first `|` and the description starts after the last one. `@<action>` as the command binds one of herdr's actions:
+
+```
+## app:zsh
+Ctrl+X Ctrl+R||edit command in $EDITOR
+ctrl+alt+e|git pull --rebase|update branch
+## tools
+|ls {dir} | wc -l|count files
+## herdr
+prefix+ctrl+k|@clear_pane|clear pane
+```
+
+Section ids are `app:<list name>` for app sections (`app:zsh`, `app:vim`, `app:lazygit`, the list's file name without `.txt` and OS suffix), `terminal` for the terminal section whichever terminal is detected, `herdr`, and `tools`, `devtools`, `packages`. Just recipes come from the justfile and take no entries.
+
+### Hotkeys in herdr's config.toml
+
+herdr reads key bindings only from its own `config.toml`, so the panel keeps your hotkeys and action keys there, between `# >>> cheat sheet` and `# <<< cheat sheet` lines. It rewrites that block from `custom.txt` whenever you add or remove an entry, and within two seconds after you edit `custom.txt` by hand. Edits inside the block itself are overwritten; change the entries in the panel or in `custom.txt`. Action keys go into your own `[keys]` table, in a marked block of their own, when you have one. Before each change the panel lets herdr check the new file (`herdr config check`); if herdr rejects it, the panel shows herdr's message and changes neither file. Otherwise it saves the previous file as `config.toml.bak-cheatsheet`, writes the new one and reloads herdr's config. The block's commands are plain shell commands calling the `herdr` CLI, so the hotkeys keep working without the plugin; remove them in the panel before uninstalling it.
 
 ## How it works
 
@@ -344,7 +385,7 @@ Groups can be tagged with the platforms they run on and the command they need, f
 curl -fsSL https://raw.githubusercontent.com/ChristianDeckert/herdr-cheatsheet/main/install.sh | sh -s -- --uninstall
 ```
 
-This removes the plugin and its key bindings, after backing up `config.toml`. Close open panels with `q`. By hand: `herdr plugin uninstall christiandeckert.cheatsheet`, then remove the `[[keys.command]]` entries.
+This removes the plugin and its key bindings, after backing up `config.toml`. Close open panels with `q`. By hand: `herdr plugin uninstall christiandeckert.cheatsheet`, then remove the `[[keys.command]]` entries. Hotkeys you added in the panel stay in the `# >>> cheat sheet` block of `config.toml`; remove them in the panel first, or delete the block by hand.
 
 ## Trust
 
